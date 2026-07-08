@@ -19,9 +19,18 @@
   .stage-fill { height:100%; background:#EC0F63; transition:width .4s ease; }
   ::-webkit-scrollbar { width:8px; height:8px; }
   ::-webkit-scrollbar-thumb { background:#cfcfd6; border-radius:8px; }
+  .spinner { width:42px;height:42px;border:4px solid #f0d4e2;border-top-color:#EC0F63;border-radius:50%;animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
 </style>
 </head>
 <body class="h-full bg-[#F4F4F5]">
+
+<!-- LOADING OVERLAY -->
+<div id="loader" class="hidden fixed inset-0 z-[80] flex flex-col items-center justify-center" style="background:rgba(244,244,245,.94)">
+  <img src="https://i.postimg.cc/BnYP2V09/logo-ha-latest.jpg" alt="HA.GRAPHIXX" style="height:46px;width:auto;border-radius:10px;margin-bottom:18px">
+  <div class="spinner"></div>
+  <div class="mt-4 text-sm font-medium" style="color:#6B6B76">Loading…</div>
+</div>
 
 <!-- LOGIN -->
 <div id="login" class="min-h-full flex items-center justify-center p-4">
@@ -92,6 +101,9 @@ const DEMO = !APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('PASTE');
 const C = { ink:'#16161A', mute:'#6B6B76', pink:'#EC0F63', line:'#E7E7EA' };
 const rm = n => 'RM ' + Number(n||0).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
 const $ = id => document.getElementById(id);
+function showLoader(){ const l = $('loader'); if (l) l.classList.remove('hidden'); }
+function hideLoader(){ const l = $('loader'); if (l) l.classList.add('hidden'); }
+function loadingPage(){ $('page').innerHTML = '<div class="flex items-center justify-center py-20"><div class="spinner" style="width:30px;height:30px;border-width:3px"></div></div>'; }
 
 let session = { user:null, token:null, role:null };
 
@@ -100,8 +112,10 @@ async function api(action, params={}) {
   if (DEMO) return demoApi(action, params);
   try {
     const res = await fetch(APPS_SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ action, ...params }) });
-    return await res.json();
-  } catch(e) { return { ok:false, error:String(e) }; }
+    const text = await res.text();
+    try { return JSON.parse(text); }
+    catch(e) { return { ok:false, error:'Server returned non-JSON. Check Apps Script deployment is live.' }; }
+  } catch(e) { return { ok:false, error:'Cannot reach server: ' + String(e) }; }
 }
 
 /* ---------- AUTH ---------- */
@@ -111,7 +125,9 @@ $('loginForm').addEventListener('submit', async (e) => {
   const pw = $('li-pw').value;
   const err = $('li-err'); err.classList.add('hidden');
   if (!id || !pw) { err.textContent='Please enter ID and password'; err.classList.remove('hidden'); return; }
+  showLoader();
   const r = await api('login', { userId:id, password:pw, role:'' });
+  hideLoader();
   if (!r.ok) { err.textContent = r.error || 'Login failed'; err.classList.remove('hidden'); return; }
   session.user = r.user; session.role = r.user.role;
   if (session.role === 'customer') {
@@ -148,6 +164,7 @@ function switchPage(p) {
   const page = $('page');
   page.classList.remove('fade'); void page.offsetWidth; page.classList.add('fade');
   if (window.innerWidth < 768) toggleSidebar(true);
+  loadingPage();
   if (p==='dashboard') renderDashboard();
   if (p==='jobs') renderJobs();
   if (p==='newjob') openNewJob();
