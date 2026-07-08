@@ -95,7 +95,7 @@
 /* ============================================================
    CONFIG — paste your Google Apps Script Web App URL here
    ============================================================ */
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBF7v4xeP0CYS9BLmXRorV9g3fUr_nLuDIbYRpVAzd9e-wIY163P5TPjYZIqSA5HEowA/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwTcaLmLey8Dur39NzGUn2F8u68t9cnct4dDFAzhDW_Nqzzi6SYm0BBwg4m2cmVr9MZ/exec';
 const DEMO = !APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('PASTE');
 
 const C = { ink:'#16161A', mute:'#6B6B76', pink:'#EC0F63', line:'#E7E7EA' };
@@ -110,12 +110,22 @@ let session = { user:null, token:null, role:null };
 /* ---------- API ---------- */
 async function api(action, params={}) {
   if (DEMO) return demoApi(action, params);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
   try {
-    const res = await fetch(APPS_SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ action, ...params }) });
+    // Apps Script Web App responds reliably to GET; POST can fail on redirect.
+    const q = new URLSearchParams();
+    q.set('action', action);
+    Object.keys(params).forEach(k => q.set(k, typeof params[k] === 'string' ? params[k] : JSON.stringify(params[k])));
+    const res = await fetch(APPS_SCRIPT_URL + '?' + q.toString(), { method:'GET', signal: ctrl.signal });
+    clearTimeout(timer);
     const text = await res.text();
     try { return JSON.parse(text); }
     catch(e) { return { ok:false, error:'Server returned non-JSON. Check Apps Script deployment is live.' }; }
-  } catch(e) { return { ok:false, error:'Cannot reach server: ' + String(e) }; }
+  } catch(e) {
+    clearTimeout(timer);
+    return { ok:false, error: (e.name === 'AbortError') ? 'Request timed out (15s). Server unreachable.' : 'Cannot reach server: ' + String(e) };
+  }
 }
 
 /* ---------- AUTH ---------- */
