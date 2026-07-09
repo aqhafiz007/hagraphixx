@@ -1330,7 +1330,7 @@
         if (tab==='review') loadReviewJobs();
         if (tab==='ordersheet') generateOrderSheet();
         if (tab==='invoice') generateInvoice();
-        if (tab==='modal') { renderModalConfig(); generateModalReport(); }
+        if (tab==='modal') { renderModalConfig(); loadJobsForModalSelect(); if (orders.length) { showModalReport(true); generateModalReport(); } else { showModalReport(false); } }
         if (tab==='progress') generateProgressReport();
         if (tab==='branding') loadBrandingForm();
         if (tab==='settings') renderSettingsForm();
@@ -1748,6 +1748,14 @@
                     </td>
                 </tr>`;
             }).join('');
+        populateModalJobSelect();
+    }
+
+    async function loadJobsForModalSelect() {
+        if (!savedJobs.length) {
+            const res = await apiCall('getJobs');
+            if (res.ok) savedJobs = res.jobs || [];
+        }
         populateModalJobSelect();
     }
 
@@ -2381,7 +2389,8 @@
         if (!sel) return;
         const current = sel.value;
         sel.innerHTML = '<option value="">-- Select Job --</option>' + savedJobs.map(j => '<option value="'+j.jobId+'">'+j.jobId+' - '+(j.namaJob||'Unnamed')+'</option>').join('');
-        sel.value = current;
+        if (sel.querySelector('option[value="'+current+'"]')) sel.value = current;
+        else sel.value = '';
     }
 
     async function onModalJobChange(jobId) {
