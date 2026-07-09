@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HA.GRAPHIXX — Sign in</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family:'Inter',sans-serif; }
+  .font-display { font-family:'Space Grotesk',sans-serif; }
+  .fade { animation:fade .3s ease; }
+  @keyframes fade { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+</style>
+</head>
+<body class="h-full" style="background:linear-gradient(180deg,#0E0E11 0%,#16161A 100%)">
+
+  <!-- LOGIN -->
+  <div id="hub-login" class="min-h-full flex items-center justify-center p-4">
+    <div class="w-full max-w-md fade">
+      <div class="rounded-3xl p-8 sm:p-10" style="background:#fff;box-shadow:0 30px 80px rgba(0,0,0,.35)">
+        <!-- Brand -->
+        <div class="flex items-center gap-2.5 mb-7">
+          <span class="flex items-center gap-[3px]">
+            <span class="rounded-full" style="width:10px;height:10px;background:#00A9E0"></span>
+            <span class="rounded-full" style="width:10px;height:10px;background:#EC0F63;margin-left:-5px"></span>
+            <span class="rounded-full" style="width:10px;height:10px;background:#F5B800;margin-left:-5px"></span>
+          </span>
+          <span class="font-display font-bold text-xl" style="color:#16161A;letter-spacing:-0.02em">ha<span style="color:#EC0F63">.</span>graphixx</span>
+        </div>
+
+        <h1 class="font-display text-2xl font-bold" style="color:#16161A;letter-spacing:-0.02em">Sign in</h1>
+        <p class="text-sm mt-1 mb-6" style="color:#6B6B76">One workspace for your jersey &amp; printing business.</p>
+
+        <!-- Workspace toggle -->
+        <div class="grid grid-cols-2 gap-1 p-1 rounded-xl mb-5" style="background:#F4F4F5">
+          <button type="button" data-ws="erp" class="ws-btn py-2 rounded-lg text-sm font-semibold" style="background:#16161A;color:#fff">Admin / Agent</button>
+          <button type="button" data-ws="portal" class="ws-btn py-2 rounded-lg text-sm font-semibold" style="background:transparent;color:#6B6B76">Customer</button>
+        </div>
+
+        <form id="hub-form" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium mb-1.5" style="color:#6B6B76">Email or User ID</label>
+            <input id="hub-id" type="text" required autocomplete="username" placeholder="you@email.com"
+              class="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none" style="border:1px solid #E7E7EA;color:#16161A">
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1.5" style="color:#6B6B76">Password</label>
+            <div class="relative">
+              <input id="hub-pw" type="password" required autocomplete="current-password" placeholder="••••••••"
+                class="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none" style="border:1px solid #E7E7EA;color:#16161A">
+              <button type="button" id="hub-eye" class="absolute right-2 top-1/2 -translate-y-1/2 px-2 text-sm" style="color:#9A9AA3">Show</button>
+            </div>
+          </div>
+          <p id="hub-error" class="hidden text-sm px-3 py-2 rounded-lg" style="color:#EC0F63;background:#EC0F6312"></p>
+          <button type="submit" id="hub-btn" class="w-full text-sm font-semibold py-3 rounded-lg text-white" style="background:#EC0F63">Sign in</button>
+        </form>
+
+        <p class="mt-5 text-center text-xs" style="color:#9A9AA3">Demo — admin / agen001 / cus001 · password agen123 or cus123</p>
+      </div>
+      <p class="text-center text-xs mt-4" style="color:#6B6B76">© 2026 HA.GRAPHIXX · Custom Jersey &amp; Printing</p>
+    </div>
+  </div>
+
+  <!-- APP FRAME -->
+  <div id="hub-app" class="hidden fixed inset-0" style="z-index:1">
+    <iframe id="hub-frame" class="w-full h-full border-0" style="background:#fff"></iframe>
+    <button id="hub-exit" class="fixed top-3 right-3 z-10 text-xs font-semibold px-3 py-2 rounded-lg" style="background:#16161A;color:#fff;opacity:.85">Exit</button>
+  </div>
+
+<script>
+  let workspace = 'erp';
+
+  document.querySelectorAll('.ws-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      workspace = b.dataset.ws;
+      document.querySelectorAll('.ws-btn').forEach(x => {
+        const on = x === b;
+        x.style.background = on ? '#16161A' : 'transparent';
+        x.style.color = on ? '#fff' : '#6B6B76';
+      });
+    });
+  });
+
+  const eye = document.getElementById('hub-eye');
+  eye.addEventListener('click', () => {
+    const pw = document.getElementById('hub-pw');
+    const show = pw.type === 'password';
+    pw.type = show ? 'text' : 'password';
+    eye.textContent = show ? 'Hide' : 'Show';
+  });
+
+  document.getElementById('hub-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = document.getElementById('hub-id').value.trim();
+    const pw = document.getElementById('hub-pw').value;
+    const err = document.getElementById('hub-error');
+    const btn = document.getElementById('hub-btn');
+    if (!id || !pw) { err.textContent = 'Please enter your ID and password.'; err.classList.remove('hidden'); return; }
+    err.classList.add('hidden');
+    btn.textContent = 'Signing in…'; btn.style.opacity = .7;
+
+    sessionStorage.setItem('ha_auth', JSON.stringify({ id, pw }));
+    const file = workspace === 'portal' ? 'ha_graphixx_portal.html' : 'ha_graphixx_erp.html';
+
+    document.getElementById('hub-login').classList.add('hidden');
+    document.getElementById('hub-app').classList.remove('hidden');
+    document.getElementById('hub-frame').src = file + '#auto';
+  });
+
+  document.getElementById('hub-exit').addEventListener('click', () => {
+    sessionStorage.removeItem('ha_auth');
+    document.getElementById('hub-frame').src = 'about:blank';
+    document.getElementById('hub-app').classList.add('hidden');
+    document.getElementById('hub-login').classList.remove('hidden');
+    document.getElementById('hub-btn').textContent = 'Sign in';
+    document.getElementById('hub-btn').style.opacity = 1;
+  });
+</script>
+</body>
+</html>

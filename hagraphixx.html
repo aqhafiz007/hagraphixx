@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HA.GRAPHIXX — ERP & Client Portal</title>
+<link rel="icon" href="https://i.postimg.cc/BnYP2V09/logo-ha-latest.jpg">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family:'Inter',sans-serif; }
+  .font-display { font-family:'Space Grotesk',sans-serif; }
+  .brand-pink { color:#EC0F63; }
+  .bg-pink { background:#EC0F63; }
+  .fade { animation:fade .25s ease; }
+  @keyframes fade { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+  .stage-bar { height:6px; border-radius:99px; background:#E7E7EA; overflow:hidden; }
+  .stage-fill { height:100%; background:#EC0F63; transition:width .4s ease; }
+  ::-webkit-scrollbar { width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb { background:#cfcfd6; border-radius:8px; }
+</style>
+</head>
+<body class="h-full bg-[#F4F4F5]">
+
+<!-- LOGIN -->
+<div id="login" class="min-h-full flex items-center justify-center p-4">
+  <div class="w-full max-w-md fade">
+    <div class="rounded-3xl p-8 sm:p-10 bg-white" style="box-shadow:0 30px 80px rgba(20,20,26,.18)">
+      <img src="https://i.postimg.cc/BnYP2V09/logo-ha-latest.jpg" alt="HA.GRAPHIXX" style="height:38px;width:auto;border-radius:8px" class="mb-6">
+      <h1 class="font-display text-2xl font-bold" style="color:#16161A">Sign in</h1>
+      <p class="text-sm mt-1 mb-6" style="color:#6B6B76">One workspace for your jersey &amp; printing business.</p>
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:#6B6B76">Email or User ID</label>
+          <input id="li-id" type="text" required autocomplete="username" placeholder="you@email.com"
+            class="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none border" style="border-color:#E7E7EA;color:#16161A">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:#6B6B76">Password</label>
+          <input id="li-pw" type="password" required autocomplete="current-password" placeholder="••••••••"
+            class="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none border" style="border-color:#E7E7EA;color:#16161A">
+        </div>
+        <p id="li-err" class="hidden text-sm px-3 py-2 rounded-lg" style="color:#EC0F63;background:#EC0F6312"></p>
+        <button type="submit" class="w-full text-sm font-semibold py-3 rounded-lg text-white bg-pink">Sign in</button>
+      </form>
+      <p class="mt-5 text-center text-xs" style="color:#9A9AA3">Demo · admin / agen001 / cus001 · password agen123 or cus123</p>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden min-h-full">
+  <header class="sticky top-0 z-20 flex items-center gap-3 px-4 sm:px-8 py-3" style="background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border-bottom:1px solid #E7E7EA">
+    <button id="menuBtn" class="md:hidden p-2 -ml-2" style="color:#16161A" onclick="toggleSidebar()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+    </button>
+    <img src="https://i.postimg.cc/BnYP2V09/logo-ha-latest.jpg" alt="HA.GRAPHIXX" style="height:30px;width:auto;border-radius:6px">
+    <div class="flex-1"></div>
+    <div class="text-right mr-3 hidden sm:block">
+      <div id="userName" class="text-sm font-semibold" style="color:#16161A"></div>
+      <div id="userRole" class="text-[11px]" style="color:#6B6B76"></div>
+    </div>
+    <button onclick="logout()" class="text-xs font-semibold px-3 py-2 rounded-lg" style="background:#16161A;color:#fff">Sign out</button>
+  </header>
+
+  <div class="flex">
+    <aside id="sidebar" class="fixed md:static z-40 top-0 left-0 h-full md:h-auto flex-col transition-transform md:translate-x-0" style="width:240px;background:#16161A;transform:translateX(-100%)">
+      <nav class="flex-1 px-3 py-4 space-y-1" id="nav"></nav>
+    </aside>
+    <div id="sidebarOverlay" class="hidden fixed inset-0 z-30 md:hidden" style="background:rgba(0,0,0,.4)" onclick="toggleSidebar()"></div>
+    <main class="flex-1 px-4 sm:px-8 py-6">
+      <div id="page" class="max-w-6xl mx-auto fade"></div>
+    </main>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(20,20,26,.45)">
+  <div class="w-full max-w-2xl rounded-2xl bg-white max-h-[90vh] overflow-y-auto" id="modalBox"></div>
+</div>
+
+<div id="toast" class="hidden fixed bottom-6 left-1/2 z-[60] px-4 py-2.5 rounded-xl text-sm" style="transform:translateX(-50%);background:#16161A;color:#fff"></div>
+
+<script>
+/* ============================================================
+   CONFIG — paste your Google Apps Script Web App URL here
+   ============================================================ */
+const APPS_SCRIPT_URL = 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
+const DEMO = !APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('PASTE');
+
+const C = { ink:'#16161A', mute:'#6B6B76', pink:'#EC0F63', line:'#E7E7EA' };
+const rm = n => 'RM ' + Number(n||0).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
+const $ = id => document.getElementById(id);
+
+let session = { user:null, token:null, role:null };
+
+/* ---------- API ---------- */
+async function api(action, params={}) {
+  if (DEMO) return demoApi(action, params);
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ action, ...params }) });
+    return await res.json();
+  } catch(e) { return { ok:false, error:String(e) }; }
+}
+
+/* ---------- AUTH ---------- */
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = $('li-id').value.trim().toLowerCase();
+  const pw = $('li-pw').value;
+  const err = $('li-err'); err.classList.add('hidden');
+  if (!id || !pw) { err.textContent='Please enter ID and password'; err.classList.remove('hidden'); return; }
+  const r = await api('login', { userId:id, password:pw, role:'' });
+  if (!r.ok) { err.textContent = r.error || 'Login failed'; err.classList.remove('hidden'); return; }
+  session.user = r.user; session.role = r.user.role;
+  if (session.role === 'customer') {
+    const p = await api('portalLogin', { email:id, password:pw });
+    if (p.ok) session.token = p.token;
+  }
+  enterApp();
+});
+
+function enterApp() {
+  $('login').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  $('userName').textContent = session.user.name || session.user.id;
+  $('userRole').textContent = session.role;
+  if (session.role === 'customer') buildNav([['orders','My Orders'],['requests','My Requests'],['invoices','Invoices'],['profile','My Profile']]);
+  else buildNav([['dashboard','Dashboard'],['jobs','Jobs'],['newjob','New Job']]);
+  switchPage(session.role === 'customer' ? 'orders' : 'dashboard');
+}
+
+function buildNav(items) {
+  $('nav').innerHTML = items.map(([k,l]) =>
+    `<button onclick="switchPage('${k}')" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm" style="color:#9a9aa4;font-weight:500" data-k="${k}">
+       <span class="ml-auto md:hidden"></span>${l}<span class="dot ml-auto h-1.5 w-1.5 rounded-full hidden" style="background:#EC0F63"></span>
+     </button>`).join('');
+}
+
+function switchPage(p) {
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    const on = b.dataset.k === p;
+    b.style.background = on ? '#2A2A31' : 'transparent';
+    b.style.color = on ? '#fff' : '#9a9aa4';
+    b.querySelector('.dot').classList.toggle('hidden', !on);
+  });
+  const page = $('page');
+  page.classList.remove('fade'); void page.offsetWidth; page.classList.add('fade');
+  if (window.innerWidth < 768) toggleSidebar(true);
+  if (p==='dashboard') renderDashboard();
+  if (p==='jobs') renderJobs();
+  if (p==='newjob') openNewJob();
+  if (p==='orders') renderOrders();
+  if (p==='requests') renderRequests();
+  if (p==='invoices') renderInvoices();
+  if (p==='profile') renderProfile();
+}
+
+function toggleSidebar(forceClose) {
+  const sb = $('sidebar'), ov = $('sidebarOverlay');
+  const open = forceClose ? false : sb.style.transform !== 'translateX(0)';
+  sb.style.transform = open ? 'translateX(0)' : 'translateX(-100%)';
+  ov.classList.toggle('hidden', !open);
+}
+
+function logout() {
+  session = { user:null, token:null, role:null };
+  $('app').classList.add('hidden');
+  $('login').classList.remove('hidden');
+  $('li-pw').value = '';
+}
+
+function toast(msg, isErr) {
+  const t = $('toast'); t.textContent = msg;
+  t.style.background = isErr ? '#EC0F63' : '#16161A';
+  t.classList.remove('hidden'); clearTimeout(t._t);
+  t._t = setTimeout(()=>t.classList.add('hidden'), 2600);
+}
+function openModal(html) { $('modalBox').innerHTML = html; $('modal').classList.remove('hidden'); }
+function closeModal() { $('modal').classList.add('hidden'); $('modalBox').innerHTML=''; }
+document.getElementById('modal').addEventListener('click', e => { if (e.target.id==='modal') closeModal(); });
+
+/* ============================================================
+   ADMIN / AGENT VIEWS
+   ============================================================ */
+async function renderDashboard() {
+  const r = await api('getDashboard', {});
+  if (!r.ok) { $('page').innerHTML = `<div class="text-sm" style="color:#EC0F63">${r.error||'Error'}</div>`; return; }
+  const s = r.stats;
+  const cards = [
+    ['Total Jobs', s.totalJobs], ['Total Pieces', s.totalHelai],
+    ['Revenue', rm(s.totalRevenue)], ['Active Jobs', s.activeJobs],
+  ];
+  $('page').innerHTML = `
+    <h1 class="text-2xl font-bold font-display mb-1" style="color:#16161A">Dashboard</h1>
+    <p class="text-sm mb-6" style="color:#6B6B76">Overview of all jersey orders.</p>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      ${cards.map(c=>`<div class="rounded-2xl p-5 bg-white border" style="border-color:#E7E7EA">
+        <div class="text-xs font-medium" style="color:#6B6B76">${c[0]}</div>
+        <div class="mt-2 text-2xl font-bold font-display" style="color:#16161A">${c[1]}</div></div>`).join('')}
+    </div>
+    <div class="rounded-2xl p-6 mt-6 bg-white border" style="border-color:#E7E7EA">
+      <div class="text-sm font-semibold uppercase tracking-wide mb-3" style="color:#6B6B76;letter-spacing:0.08em">Recent Jobs</div>
+      ${r.recentJobs.length ? `<div class="space-y-2">${r.recentJobs.map(j=>`
+        <div class="flex items-center justify-between py-3 border-b" style="border-color:#F0F0F2">
+          <div><div class="font-mono font-bold text-sm" style="color:#16161A">${j.jobId}</div>
+          <div class="text-xs" style="color:#6B6B76">${j.namaJob} · ${j.helai} pcs</div></div>
+          <div class="text-right"><div class="font-semibold" style="color:#16161A">${rm(j.jumlah)}</div>
+          <div class="text-[11px]" style="color:#EC0F63">${j.status}</div></div>
+        </div>`).join('')}</div>` : `<div class="text-sm" style="color:#9A9AA3">No jobs yet.</div>`}
+    </div>`;
+}
+
+async function renderJobs() {
+  const r = await api('getJobs', {});
+  if (!r.ok) { $('page').innerHTML = `<div class="text-sm" style="color:#EC0F63">${r.error||'Error'}</div>`; return; }
+  $('page').innerHTML = `
+    <div class="flex items-end justify-between mb-5">
+      <div><h1 class="text-2xl font-bold font-display" style="color:#16161A">Jobs</h1>
+      <p class="text-sm mt-1" style="color:#6B6B76">All customer & agent orders.</p></div>
+      <button onclick="openNewJob()" class="text-sm font-semibold px-4 py-2.5 rounded-lg text-white bg-pink">+ New Job</button>
+    </div>
+    <div class="rounded-2xl overflow-hidden bg-white border" style="border-color:#E7E7EA">
+      <table class="w-full text-sm">
+        <thead><tr style="border-bottom:1px solid #E7E7EA" class="text-left">
+          <th class="px-5 py-3 text-[11px] uppercase tracking-wider" style="color:#6B6B76">Job</th>
+          <th class="px-5 py-3 text-[11px] uppercase tracking-wider" style="color:#6B6B76">Name</th>
+          <th class="px-5 py-3 text-[11px] uppercase tracking-wider" style="color:#6B6B76">Pieces</th>
+          <th class="px-5 py-3 text-[11px] uppercase tracking-wider" style="color:#6B6B76">Amount</th>
+          <th class="px-5 py-3 text-[11px] uppercase tracking-wider" style="color:#6B6B76">Status</th>
+          <th class="px-5 py-3"></th>
+        </tr></thead>
+        <tbody>
+          ${r.jobs.map(j=>`<tr style="border-bottom:1px solid #F0F0F2">
+            <td class="px-5 py-3 font-mono font-bold" style="color:#16161A">${j.jobId}</td>
+            <td class="px-5 py-3">${j.namaJob||''}</td>
+            <td class="px-5 py-3">${j.helai||0}</td>
+            <td class="px-5 py-3 font-semibold">${rm(j.jumlah)}</td>
+            <td class="px-5 py-3"><span class="px-2.5 py-1 rounded-full text-xs font-medium" style="color:#EC0F63;background:#EC0F6312">${j.status}</span></td>
+            <td class="px-5 py-3 text-right">
+              <button onclick="delJob('${j.jobId}')" class="text-xs font-semibold" style="color:#EC0F63">Delete</button>
+            </td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function openNewJob() {
+  openModal(`
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold font-display text-lg" style="color:#16161A">New Job</h3>
+        <button onclick="closeModal()" style="color:#6B6B76">✕</button>
+      </div>
+      <div class="space-y-3">
+        <div><label class="text-xs font-medium" style="color:#6B6B76">Job Name</label>
+          <input id="nj-name" class="w-full rounded-lg px-3 py-2.5 text-sm border mt-1" style="border-color:#E7E7EA;color:#16161A"></div>
+        <div><label class="text-xs font-medium" style="color:#6B6B76">Invoice No</label>
+          <input id="nj-inv" class="w-full rounded-lg px-3 py-2.5 text-sm border mt-1" style="border-color:#E7E7EA;color:#16161A"></div>
+        <div class="flex items-center justify-between"><label class="text-xs font-medium" style="color:#6B6B76">Items</label>
+          <button onclick="addItemRow()" class="text-xs font-semibold" style="color:#EC0F63">+ Add</button></div>
+        <div id="nj-items" class="space-y-2"></div>
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button onclick="closeModal()" class="text-sm font-semibold px-4 py-2.5 rounded-lg" style="background:#F4F4F5;color:#16161A">Cancel</button>
+        <button onclick="saveJob()" class="text-sm font-semibold px-4 py-2.5 rounded-lg text-white bg-pink">Save Job</button>
+      </div>
+    </div>`);
+  addItemRow();
+}
+
+function addItemRow() {
+  const c = $('nj-items');
+  const row = document.createElement('div');
+  row.className = 'grid grid-cols-12 gap-2 items-center';
+  row.innerHTML = `
+    <input placeholder="Name" class="col-span-4 rounded-lg px-2 py-2 text-sm border" style="border-color:#E7E7EA;color:#16161A" data-f="nama">
+    <input placeholder="Size" class="col-span-2 rounded-lg px-2 py-2 text-sm border" style="border-color:#E7E7EA;color:#16161A" data-f="saiz">
+    <input placeholder="Sleeve" class="col-span-2 rounded-lg px-2 py-2 text-sm border" style="border-color:#E7E7EA;color:#16161A" data-f="lengan">
+    <input placeholder="Collar" class="col-span-2 rounded-lg px-2 py-2 text-sm border" style="border-color:#E7E7EA;color:#16161A" data-f="kolar">
+    <input placeholder="RM" class="col-span-2 rounded-lg px-2 py-2 text-sm border" style="border-color:#E7E7EA;color:#16161A" data-f="hargaUnit">`;
+  c.appendChild(row);
+}
+
+async function saveJob() {
+  const orders = [...document.querySelectorAll('#nj-items > div')].map(r => {
+    const g = f => r.querySelector(`[data-f="${f}"]`).value;
+    return { nama:g('nama'), saiz:g('saiz'), lengan:g('lengan'), kolar:g('kolar'), hargaUnit:parseFloat(g('hargaUnit'))||0 };
+  });
+  const r = await api('saveJob', { job:{ namaJob:$('nj-name').value, noInvois:$('nj-inv').value }, orders, userId:session.user.id, userRole:session.role });
+  if (r.ok) { closeModal(); toast('Job saved'); switchPage('jobs'); }
+  else toast(r.error||'Save failed', true);
+}
+
+async function delJob(id) {
+  if (!confirm('Delete job '+id+'?')) return;
+  const r = await api('deleteJob', { jobId:id });
+  if (r.ok) { toast('Deleted'); renderJobs(); } else toast(r.error||'Delete failed', true);
+}
+
+/* ============================================================
+   CUSTOMER VIEWS
+   ============================================================ */
+const STAGES = ['Artwork','Approval','Printing','Cut & Sew','QC','Shipped'];
+function stageOf(status) {
+  const m = { submitted:0, reviewing:0, quoted:1, confirmed:1, production:2, ready:4, delivered:5, completed:5, rejected:0, pending:0, 'Aktif':2 };
+  return m[status] !== undefined ? m[status] : 0;
+}
+function labelOf(status) {
+  const m = { submitted:'Arranging Artwork', reviewing:'Arranging Artwork', quoted:'Awaiting Approval', confirmed:'Awaiting Approval', production:'In Printing', ready:'Ready for Pickup', delivered:'Completed', completed:'Completed', rejected:'On Hold', pending:'Arranging Artwork', 'Aktif':'In Printing' };
+  return m[status] || 'Arranging Artwork';
+}
+async function renderOrders() {
+  const r = await api('portalBootstrap', { token:session.token });
+  if (!r.ok) { $('page').innerHTML = `<div class="text-sm" style="color:#EC0F63">${r.error||'Error'}</div>`; return; }
+  const orders = r.orders || [];
+  $('page').innerHTML = `
+    <h1 class="text-2xl font-bold font-display mb-1" style="color:#16161A">My Orders</h1>
+    <p class="text-sm mb-6" style="color:#6B6B76">Track every job from artwork to delivery.</p>
+    <div class="space-y-3">
+      ${orders.length ? orders.map(o=>`
+        <div class="rounded-2xl p-5 bg-white border" style="border-color:#E7E7EA">
+          <div class="flex items-center justify-between mb-3">
+            <div><span class="font-mono font-bold" style="color:#16161A">${o.id}</span>
+            <span class="ml-2 px-2.5 py-1 rounded-full text-xs font-medium" style="color:#EC0F63;background:#EC0F6312">${o.status}</span></div>
+            <div class="font-bold font-display" style="color:#16161A">${rm(o.amount)}</div>
+          </div>
+          <div class="text-sm mb-3" style="color:#6B6B76">${o.service} · ${o.qty} pcs · due ${o.due}</div>
+          <div class="stage-bar"><div class="stage-fill" style="width:${((o.stage+1)/STAGES.length)*100}%"></div></div>
+          <div class="flex justify-between mt-1 text-[10px]" style="color:#9A9AA3">${STAGES.map(s=>`<span>${s}</span>`).join('')}</div>
+        </div>`).join('') : `<div class="text-sm" style="color:#9A9AA3">No orders yet.</div>`}
+    </div>`;
+}
+async function renderRequests() {
+  const r = await api('portalBootstrap', { token:session.token });
+  const reqs = (r.ok && r.requests) || [];
+  $('page').innerHTML = `
+    <div class="flex items-end justify-between mb-5">
+      <div><h1 class="text-2xl font-bold font-display" style="color:#16161A">My Requests</h1>
+      <p class="text-sm mt-1" style="color:#6B6B76">Ask for a quote — we'll price it.</p></div>
+      <button onclick="openRequest()" class="text-sm font-semibold px-4 py-2.5 rounded-lg text-white bg-pink">+ New</button>
+    </div>
+    <div class="rounded-2xl overflow-hidden bg-white border" style="border-color:#E7E7EA">
+      <table class="w-full text-sm"><thead><tr style="border-bottom:1px solid #E7E7EA" class="text-left">
+        <th class="px-5 py-3 text-[11px] uppercase" style="color:#6B6B76">Request</th>
+        <th class="px-5 py-3 text-[11px] uppercase" style="color:#6B6B76">Service</th>
+        <th class="px-5 py-3 text-[11px] uppercase" style="color:#6B6B76">Status</th>
+      </tr></thead><tbody>
+        ${reqs.length?reqs.map(rq=>`<tr style="border-bottom:1px solid #F0F0F2">
+          <td class="px-5 py-3 font-mono font-bold" style="color:#16161A">${rq.id}</td>
+          <td class="px-5 py-3">${rq.service}</td>
+          <td class="px-5 py-3"><span class="px-2.5 py-1 rounded-full text-xs font-medium" style="color:#0E9F6E;background:#0E9F6E1A">${rq.status}</span></td>
+        </tr>`).join(''):`<tr><td colspan="3" class="px-5 py-8 text-center" style="color:#9A9AA3">No requests yet.</td></tr>`}
+      </tbody></table>
+    </div>`;
+}
+function openRequest() {
+  openModal(`<div class="p-6">
+    <div class="flex items-center justify-between mb-4"><h3 class="font-bold font-display text-lg" style="color:#16161A">New Request</h3>
+    <button onclick="closeModal()" style="color:#6B6B76">✕</button></div>
+    <div class="space-y-3">
+      <select id="rq-svc" class="w-full rounded-lg px-3 py-2.5 text-sm border" style="border-color:#E7E7EA;color:#16161A">
+        ${['Sublimation Jersey','Custom Hoodie','Team Polo','Team Cap','Tote Bag'].map(s=>`<option>${s}</option>`).join('')}</select>
+      <input id="rq-qty" type="number" value="20" class="w-full rounded-lg px-3 py-2.5 text-sm border" style="border-color:#E7E7EA;color:#16161A">
+    </div>
+    <div class="flex justify-end gap-2 mt-5">
+      <button onclick="closeModal()" class="text-sm font-semibold px-4 py-2.5 rounded-lg" style="background:#F4F4F5;color:#16161A">Cancel</button>
+      <button onclick="submitRequest()" class="text-sm font-semibold px-4 py-2.5 rounded-lg text-white bg-pink">Submit</button>
+    </div></div>`);
+}
+async function submitRequest() {
+  const r = await api('portalSubmitRequest', { token:session.token, service:$('rq-svc').value, qty:$('rq-qty').value, notes:'' });
+  if (r.ok) { closeModal(); toast('Request submitted'); switchPage('requests'); } else toast(r.error||'Failed', true);
+}
+async function renderInvoices() {
+  const r = await api('portalBootstrap', { token:session.token });
+  const invs = (r.ok && r.invoices) || [];
+  $('page').innerHTML = `
+    <h1 class="text-2xl font-bold font-display mb-5" style="color:#16161A">Invoices</h1>
+    <div class="rounded-2xl overflow-hidden bg-white border" style="border-color:#E7E7EA">
+      <table class="w-full text-sm"><thead><tr style="border-bottom:1px solid #E7E7EA" class="text-left">
+        <th class="px-5 py-3 text-[11px] uppercase" style="color:#6B6B76">Invoice</th>
+        <th class="px-5 py-3 text-[11px] uppercase" style="color:#6B6B76">Amount</th>
+        <th class="px-5 py-3 text-[11px] uppercase" style="color:#6B6B76">Balance</th>
+        <th class="px-5 py-3 text-[11px] uppercase" style="color:#6B6B76">Status</th>
+      </tr></thead><tbody>
+        ${invs.length?invs.map(i=>`<tr style="border-bottom:1px solid #F0F0F2">
+          <td class="px-5 py-3 font-mono font-bold" style="color:#16161A">${i.id}</td>
+          <td class="px-5 py-3 font-semibold">${rm(i.amount)}</td>
+          <td class="px-5 py-3" style="color:${i.balance?'#EC0F63':'#6B6B76'}">${rm(i.balance)}</td>
+          <td class="px-5 py-3">${i.status}</td></tr>`).join(''):`<tr><td colspan="4" class="px-5 py-8 text-center" style="color:#9A9AA3">No invoices yet.</td></tr>`}
+      </tbody></table>
+    </div>`;
+}
+async function renderProfile() {
+  const r = await api('portalBootstrap', { token:session.token });
+  const p = (r.ok && r.profile) || session.user || {};
+  $('page').innerHTML = `
+    <h1 class="text-2xl font-bold font-display mb-5" style="color:#16161A">My Profile</h1>
+    <div class="rounded-2xl p-6 bg-white border max-w-2xl" style="border-color:#E7E7EA">
+      <div class="space-y-3">
+        <div><label class="text-xs font-medium" style="color:#6B6B76">Name</label>
+          <input id="pf-name" value="${p.name||''}" class="w-full rounded-lg px-3 py-2.5 text-sm border mt-1" style="border-color:#E7E7EA;color:#16161A"></div>
+        <div><label class="text-xs font-medium" style="color:#6B6B76">Phone</label>
+          <input id="pf-phone" value="${p.phone||''}" class="w-full rounded-lg px-3 py-2.5 text-sm border mt-1" style="border-color:#E7E7EA;color:#16161A"></div>
+        <div><label class="text-xs font-medium" style="color:#6B6B76">Address</label>
+          <input id="pf-addr" value="${p.address||''}" class="w-full rounded-lg px-3 py-2.5 text-sm border mt-1" style="border-color:#E7E7EA;color:#16161A"></div>
+      </div>
+      <div class="flex justify-end mt-4">
+        <button onclick="saveProfile()" class="text-sm font-semibold px-4 py-2.5 rounded-lg text-white bg-pink">Save</button>
+      </div>
+    </div>`;
+}
+async function saveProfile() {
+  const r = await api('portalUpdateProfile', { token:session.token, profile:{ name:$('pf-name').value, phone:$('pf-phone').value, address:$('pf-addr').value } });
+  if (r.ok) toast('Profile updated'); else toast(r.error||'Failed', true);
+}
+
+/* ============================================================
+   DEMO (offline) fallback
+   ============================================================ */
+function demoApi(action, params) {
+  const users = { admin:{id:'admin',role:'admin',name:'Administrator'}, agen001:{id:'agen001',role:'agen',name:'Agen Ali'}, cus001:{id:'cus001',role:'customer',name:'Siti Aishah'} };
+  const find = (id,pw) => Object.values(users).find(u => (u.id===id) && (pw==='admin123'||pw==='agen123'||pw==='cus123'));
+  if (action==='login') { const u=find((params.userId||'').toLowerCase(), params.password); return u?{ok:true,user:u}:{ok:false,error:'Wrong credentials'}; }
+  if (action==='portalLogin') { const u=find((params.email||'').toLowerCase(), params.password); return u?{ok:true,token:'demo-'+u.id,profile:u}:{ok:false,error:'Wrong credentials'}; }
+  if (action==='getDashboard') return { ok:true, stats:{totalJobs:3,totalHelai:79,totalRevenue:3568,activeJobs:2,statusCounts:{},totalOrders:3},
+    recentJobs:[{jobId:'JOB-001',namaJob:'Sublimation Jersey',helai:24,jumlah:1200,status:'production'},{jobId:'JOB-002',namaJob:'Team Polo',helai:20,jumlah:900,status:'completed'}] };
+  if (action==='getJobs') return { ok:true, jobs:[
+    {jobId:'JOB-001',namaJob:'Sublimation Jersey',helai:24,jumlah:1200,status:'production'},
+    {jobId:'JOB-002',namaJob:'Team Polo',helai:20,jumlah:900,status:'completed'}] };
+  if (action==='portalBootstrap') return { ok:true, profile:{name:'Siti Aishah',phone:'011-1115 0199'},
+    orders:[{id:'SUB-00029',service:'Sublimation Jersey',qty:24,stage:2,status:'In Printing',due:'25 Jul 2026',invoice:'INV-001',amount:1200}],
+    invoices:[{id:'INV-001',amount:1200,balance:1200,status:'Sent'}],
+    requests:[{id:'REQ-001',service:'Custom Hoodie',status:'Pending'}] };
+  if (action==='saveJob') return { ok:true, jobId:'JOB-'+Date.now() };
+  if (action==='deleteJob') return { ok:true };
+  if (action==='portalSubmitRequest') return { ok:true, request:{id:'REQ-'+Date.now(),service:params.service,status:'Pending'} };
+  if (action==='portalUpdateProfile') return { ok:true };
+  return { ok:false, error:'Demo: action not supported' };
+}
+</script>
+</body>
+</html>
