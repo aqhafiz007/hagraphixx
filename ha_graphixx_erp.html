@@ -1714,7 +1714,7 @@
         const noInvois = document.getElementById('global-invoice-no').value || '';
         const job = { namaJob, noInvois, status:'Aktif', config: JSON.stringify(pricingConfig) };
         if (currentJobId) job.jobId = currentJobId; // update existing job instead of creating a new one
-        const orderData = orders.map((o,i) => ({ bil:o.bil||(i+1), lengan:o.sleeve, saiz:o.size, nama:o.name, kolar:o.collar, remarks:o.remarks, hargaUnit:o.price, status:o.status||'pending' }));
+        const orderData = orders.map((o,i) => ({ bil:o.bil||(i+1), lengan:o.sleeve, saiz:o.size, nama:o.name, kolar:o.collar, remarks:o.remarks, hargaUnit:o.price, basePrice:o.basePrice||o.price, customPrice:o.customPrice||null, status:o.status||'pending' }));
         showMessage('Saving to database...');
         const res = await apiCall('saveJob', { job, orders:orderData, userId:currentUser?.id||'', userRole:currentUser?.role||'' });
         if (res.ok) {

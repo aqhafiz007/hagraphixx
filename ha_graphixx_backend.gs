@@ -125,6 +125,13 @@ function handleRequest(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// CORS preflight handler
+function doGetOptions(e) {
+  return ContentService
+    .createTextOutput('')
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 // ==========================================
 // SECURITY - password hashing (SHA-256)
 // New passwords are stored as hashes. Comparison also accepts legacy
@@ -501,7 +508,7 @@ function apiUpdateJobStatus(params) {
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === jobId) {
       jobsSheet.getRange(i+1, 4).setValue(newStatus); // Status column
-      jobsSheet.getRange(i+1, 9).setValue(now); // Updated column
+      jobsSheet.getRange(i+1, 10).setValue(now); // Dikemaskini Pada column
       if (reason) jobsSheet.getRange(i+1, 4).setValue(newStatus + ' (rejected: ' + reason + ')');
       
       // Send email notification to job creator
@@ -847,12 +854,17 @@ function apiPortalSubmitRequest(params) {
     'submitted',
     qty,
     0, // amount TBD - admin will quote
-    '',
-    '', // Cost JSON placeholder
-    now,
-    now.toLocaleString('en-GB'),
-    userId,
-    'customer'
+    '', // Konfigurasi Harga JSON
+    '', // Cost JSON
+    now, // Dicipta Pada
+    now.toLocaleString('en-GB'), // Dikemaskini Pada
+    userId, // Dicipta Oleh
+    'customer', // Role Pencipta
+    '', // Agent Code
+    '', // Customer Name
+    '', // Customer Contact
+    '', // Brand JSON
+    ''  // Notes
   ]);
   
   return {
@@ -882,9 +894,10 @@ function apiPortalUpdateProfile(params) {
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === userId) {
-      // Update name (col 4 = index 3)
-      if (profile.name) sheet.getRange(i+1, 4).setValue(profile.name);
-      // Note: In a full implementation, you'd add phone/address columns to Users sheet
+      // Update name (col 4 = index 3), phone (col 6 = index 5), address (col 8 = index 7)
+      if (profile.name)    sheet.getRange(i+1, 4).setValue(profile.name);
+      if (profile.phone)   sheet.getRange(i+1, 6).setValue(profile.phone);
+      if (profile.address) sheet.getRange(i+1, 8).setValue(profile.address);
       return { ok: true };
     }
   }
