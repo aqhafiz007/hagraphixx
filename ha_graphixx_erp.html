@@ -451,14 +451,24 @@
                 <div class="flex flex-col sm:flex-row justify-between items-center no-print gap-4 mb-4">
                     <h2 class="text-2xl font-bold text-white">Cost & Profit Calculator</h2>
                     <div class="flex flex-wrap items-center gap-3">
-                        <select id="modal-job-select" onchange="onModalJobChange(this.value)" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-brand-500 outline-none">
-                            <option value="">Current Job</option>
-                        </select>
                         <button onclick="window.print()" class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-5 rounded-lg transition-colors text-sm">Print</button>
                         <button onclick="downloadPDF('modal')" class="bg-red-600 hover:bg-red-500 text-white font-medium py-2 px-5 rounded-lg transition-colors text-sm">Download PDF</button>
                     </div>
                 </div>
-                <div id="modal-print-area" class="print-area bg-white text-gray-800 rounded-xl shadow-sm border border-gray-200 p-8">
+
+                <!-- JOB SELECTOR -->
+                <div id="modal-job-picker" class="bg-gray-900 border border-gray-800 rounded-xl p-6 text-center no-print">
+                    <h3 class="text-lg font-semibold text-white mb-3">Select a Job First</h3>
+                    <p class="text-sm text-gray-400 mb-4">Choose a saved job to calculate its cost & profit.</p>
+                    <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+                        <select id="modal-job-select" onchange="onModalJobChange(this.value)" class="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-brand-500 outline-none min-w-[260px]">
+                            <option value="">-- Select Job --</option>
+                        </select>
+                        <button onclick="loadModalCurrentJob()" class="text-sm bg-brand-600 hover:bg-brand-500 text-white font-medium px-4 py-2.5 rounded-lg transition-colors">Use Current Job</button>
+                    </div>
+                </div>
+
+                <div id="modal-print-area" class="print-area bg-white text-gray-800 rounded-xl shadow-sm border border-gray-200 p-8 hidden">
                     <div class="text-center mb-6">
                         <h1 class="text-3xl font-bold uppercase tracking-wider text-gray-900">Cost & Profit Report</h1>
                         <p class="text-gray-600 mt-2 text-lg">Job: <span id="modal-job-name" class="font-bold uppercase"></span></p>
@@ -2291,6 +2301,21 @@
         });
     }
 
+    function showModalReport(show) {
+        const picker = document.getElementById('modal-job-picker');
+        const report = document.getElementById('modal-print-area');
+        if (picker) picker.classList.toggle('hidden', show);
+        if (report) report.classList.toggle('hidden', !show);
+    }
+
+    function loadModalCurrentJob() {
+        const sel = document.getElementById('modal-job-select');
+        if (sel) sel.value = '';
+        jobCostMap = {};
+        showModalReport(true);
+        generateModalReport();
+    }
+
     function generateModalReport() {
         const tbody = document.getElementById('modal-tbody');
         const tfoot = document.getElementById('modal-tfoot');
@@ -2298,8 +2323,11 @@
         const jobName = document.getElementById('global-job-name').value || 'Untitled';
         const modName = document.getElementById('modal-job-name');
         if (modName) modName.textContent = jobName.toUpperCase();
-        tbody.innerHTML=''; tfoot.innerHTML=''; summary.innerHTML='';
-        if(!orders.length) { tbody.innerHTML='<tr><td colspan="8" class="p-8 text-center text-gray-500">No data.</td></tr>'; return; }
+        if (!orders.length) {
+            tbody.innerHTML='<tr><td colspan="7" class="p-8 text-center text-gray-500">No items in this job.</td></tr>';
+            tfoot.innerHTML=''; summary.innerHTML='';
+            return;
+        }
         const totalQty = orders.length;
         const groups = {};
         orders.forEach(o => {
@@ -2313,6 +2341,7 @@
             groups[key].sizes[o.size].sale += (parseFloat(o.price) || 0);
         });
         let gS=0,gM=0;
+        tbody.innerHTML='';
         Object.entries(groups).forEach(([key,g]) => {
             const profit = g.totalSale - g.totalModal; gS+=g.totalSale; gM+=g.totalModal;
             const sizeDesc = Object.entries(g.sizes).map(([s,info])=>s+'('+info.qty+')').join(', ');
@@ -2351,13 +2380,14 @@
         const sel = document.getElementById('modal-job-select');
         if (!sel) return;
         const current = sel.value;
-        sel.innerHTML = '<option value="">Current Job</option>' + savedJobs.map(j => '<option value="'+j.jobId+'">'+j.jobId+' - '+(j.namaJob||'Unnamed')+'</option>').join('');
+        sel.innerHTML = '<option value="">-- Select Job --</option>' + savedJobs.map(j => '<option value="'+j.jobId+'">'+j.jobId+' - '+(j.namaJob||'Unnamed')+'</option>').join('');
         sel.value = current;
     }
 
     async function onModalJobChange(jobId) {
         if (!jobId) return;
         await loadJobData(jobId, false);
+        showModalReport(true);
         generateModalReport();
     }
 
