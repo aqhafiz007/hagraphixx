@@ -81,16 +81,67 @@ function handleRequest(e) {
   let action = 'ping';
   let params = {};
   
+  // Handle GET and POST form-urlencoded (params come in e.parameter)
   if (e.parameter.action) {
     action = e.parameter.action;
     params = e.parameter;
   } else if (e.postData && e.postData.contents) {
+    // Handle JSON body (raw POST)
     try {
       const body = JSON.parse(e.postData.contents);
       action = body.action || action;
       params = body;
     } catch(err) {
+      // Not JSON — fall back to e.parameter
       params = e.parameter;
+    }
+  }
+  
+  // Endpoints that DON'T require auth
+  const publicEndpoints = ['ping', 'login', 'portalLogin'];
+  
+  // Endpoints that require admin role
+  const adminOnlyEndpoints = ['saveJob', 'deleteJob', 'updateJobStatus', 'saveQuote', 'saveSettings'];
+  
+  // Check auth for non-public endpoints
+  if (publicEndpoints.indexOf(action) === -1) {
+    const userId = String(params.userId || '');
+    const userRole = String(params.userRole || '');
+    
+    if (!userId) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: 'Authentication required' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // Verify user exists and get role from sheet
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const usersSheet = ss.getSheetByName('Users');
+    if (usersSheet) {
+      const usersData = usersSheet.getDataRange().getValues();
+      let verifiedRole = '';
+      let userActive = false;
+      for (let i = 1; i < usersData.length; i++) {
+        if (String(usersData[i][0]).toLowerCase() === userId.toLowerCase()) {
+          verifiedRole = String(usersData[i][2] || '');
+          userActive = String(usersData[i][8]).toUpperCase() === 'TRUE';
+          break;
+        }
+      }
+      if (!verifiedRole || !userActive) {
+        return ContentService
+          .createTextOutput(JSON.stringify({ ok: false, error: 'Invalid or inactive user' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      // Override userRole with verified value
+      params.userRole = verifiedRole;
+      
+      // Admin-only check
+      if (adminOnlyEndpoints.indexOf(action) !== -1 && verifiedRole !== 'admin') {
+        return ContentService
+          .createTextOutput(JSON.stringify({ ok: false, error: 'Admin access required' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
     }
   }
   
