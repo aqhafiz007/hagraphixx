@@ -342,7 +342,12 @@
             <!-- ========================================== -->
             <div id="view-ordersheet" class="hidden space-y-6 fade-in">
                 <div class="flex flex-col sm:flex-row justify-between items-center no-print gap-4 mb-4">
-                    <h2 class="text-2xl font-bold text-white">Order Sheet (Production)</h2>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <h2 class="text-2xl font-bold text-white">Order Sheet (Production)</h2>
+                        <select id="ordersheet-job-select" onchange="onReportJobChange('ordersheet', this.value)" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-brand-500 outline-none">
+                            <option value="">-- Select Job --</option>
+                        </select>
+                    </div>
                     <div class="flex gap-3">
                         <button onclick="window.print()" class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-5 rounded-lg transition-colors flex items-center gap-2 text-sm">
                             <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" /></svg>
@@ -383,7 +388,12 @@
             <!-- ========================================== -->
             <div id="view-invoice" class="hidden space-y-6 fade-in">
                 <div class="flex flex-col sm:flex-row justify-between items-center no-print gap-4 mb-4">
-                    <h2 class="text-2xl font-bold text-white">Invoice</h2>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <h2 class="text-2xl font-bold text-white">Invoice</h2>
+                        <select id="invoice-job-select" onchange="onReportJobChange('invoice', this.value)" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-brand-500 outline-none">
+                            <option value="">-- Select Job --</option>
+                        </select>
+                    </div>
                     <div class="flex gap-3">
                         <button onclick="window.print()" class="bg-brand-600 hover:bg-brand-500 text-white font-medium py-2 px-5 rounded-lg transition-colors flex items-center gap-2 text-sm">
                             <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" /></svg>
@@ -451,6 +461,10 @@
                 <div class="flex flex-col sm:flex-row justify-between items-center no-print gap-4 mb-4">
                     <h2 class="text-2xl font-bold text-white">Cost & Profit Calculator</h2>
                     <div class="flex flex-wrap items-center gap-3">
+                        <select id="modal-job-select" onchange="onReportJobChange('modal', this.value)" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-brand-500 outline-none min-w-[260px]">
+                            <option value="">-- Select Job --</option>
+                        </select>
+                        <button onclick="loadModalCurrentJob()" class="text-sm bg-brand-600 hover:bg-brand-500 text-white font-medium px-4 py-2 rounded-lg transition-colors">Use Current Job</button>
                         <button onclick="window.print()" class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-5 rounded-lg transition-colors text-sm">Print</button>
                         <button onclick="downloadPDF('modal')" class="bg-red-600 hover:bg-red-500 text-white font-medium py-2 px-5 rounded-lg transition-colors text-sm">Download PDF</button>
                     </div>
@@ -461,7 +475,7 @@
                     <h3 class="text-lg font-semibold text-white mb-3">Select a Job First</h3>
                     <p class="text-sm text-gray-400 mb-4">Choose a saved job to calculate its cost & profit.</p>
                     <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
-                        <select id="modal-job-select" onchange="onModalJobChange(this.value)" class="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-brand-500 outline-none min-w-[260px]">
+                        <select id="modal-job-select2" onchange="onReportJobChange('modal', this.value)" class="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-brand-500 outline-none min-w-[260px]">
                             <option value="">-- Select Job --</option>
                         </select>
                         <button onclick="loadModalCurrentJob()" class="text-sm bg-brand-600 hover:bg-brand-500 text-white font-medium px-4 py-2.5 rounded-lg transition-colors">Use Current Job</button>
@@ -1328,13 +1342,46 @@
 
         if (tab==='dashboard') loadDashboard();
         if (tab==='review') loadReviewJobs();
-        if (tab==='ordersheet') generateOrderSheet();
-        if (tab==='invoice') generateInvoice();
-        if (tab==='modal') { renderModalConfig(); loadJobsForModalSelect(); if (orders.length) { showModalReport(true); generateModalReport(); } else { showModalReport(false); } }
+        if (tab==='ordersheet') { populateReportJobSelect('ordersheet-job-select'); generateOrderSheet(); }
+        if (tab==='invoice') { populateReportJobSelect('invoice-job-select'); generateInvoice(); }
+        if (tab==='modal') { populateReportJobSelect('modal-job-select'); renderModalConfig(); if (orders.length) { showModalReport(true); generateModalReport(); } else { showModalReport(false); } }
         if (tab==='progress') generateProgressReport();
         if (tab==='branding') loadBrandingForm();
         if (tab==='settings') renderSettingsForm();
         if (tab==='jobs') loadJobsFromSheet();
+    }
+
+    // Shared job dropdown for invoice, order sheet, cost & profit
+    function populateReportJobSelect(selectId) {
+        const sel = document.getElementById(selectId);
+        if (!sel) return;
+        const current = sel.value;
+        const currentJobName = document.getElementById('global-job-name')?.value || '';
+        sel.innerHTML = '<option value="">-- Select Job --</option>' +
+            savedJobs.map(j => '<option value="'+j.jobId+'">'+j.jobId+' - '+(j.namaJob||'Unnamed')+'</option>').join('');
+        // Try to keep current loaded job selected
+        const loaded = savedJobs.find(j => (j.namaJob||'').toUpperCase() === currentJobName.toUpperCase());
+        if (loaded && sel.querySelector('option[value="'+loaded.jobId+'"]')) {
+            sel.value = loaded.jobId;
+        } else if (sel.querySelector('option[value="'+current+'"]')) {
+            sel.value = current;
+        } else {
+            sel.value = '';
+        }
+    }
+
+    async function onReportJobChange(reportName, jobId) {
+        if (!jobId) {
+            // keep current loaded job, don't clear data
+            if (reportName==='invoice') generateInvoice();
+            if (reportName==='ordersheet') generateOrderSheet();
+            if (reportName==='modal') { showModalReport(false); }
+            return;
+        }
+        await loadJobData(jobId, false);
+        if (reportName==='invoice') generateInvoice();
+        if (reportName==='ordersheet') generateOrderSheet();
+        if (reportName==='modal') { showModalReport(true); generateModalReport(); }
     }
 
     // ==========================================
@@ -1748,7 +1795,10 @@
                     </td>
                 </tr>`;
             }).join('');
-        populateModalJobSelect();
+        populateReportJobSelect('ordersheet-job-select');
+        populateReportJobSelect('invoice-job-select');
+        populateReportJobSelect('modal-job-select');
+        populateReportJobSelect('modal-job-select2');
     }
 
     async function loadJobsForModalSelect() {
@@ -1756,7 +1806,8 @@
             const res = await apiCall('getJobs');
             if (res.ok) savedJobs = res.jobs || [];
         }
-        populateModalJobSelect();
+        populateReportJobSelect('modal-job-select');
+        populateReportJobSelect('modal-job-select2');
     }
 
     async function loadJobForInvoice(jobId) {
@@ -2241,6 +2292,8 @@
     const trashIcon = '<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>';
 
     function renderModalConfig() {
+        populateReportJobSelect('modal-job-select');
+        populateReportJobSelect('modal-job-select2');
         const cl = document.getElementById('modal-collar-list'); cl.innerHTML='';
         const usedC = new Set(orders.map(o=>o.collar));
         (usedC.size>0 ? Array.from(usedC) : Object.keys(modalCollar)).sort().forEach(c => {
@@ -2381,21 +2434,7 @@
         generateModalReport();
     }
 
-    function populateModalJobSelect() {
-        const sel = document.getElementById('modal-job-select');
-        if (!sel) return;
-        const current = sel.value;
-        sel.innerHTML = '<option value="">-- Select Job --</option>' + savedJobs.map(j => '<option value="'+j.jobId+'">'+j.jobId+' - '+(j.namaJob||'Unnamed')+'</option>').join('');
-        if (sel.querySelector('option[value="'+current+'"]')) sel.value = current;
-        else sel.value = '';
-    }
-
-    async function onModalJobChange(jobId) {
-        if (!jobId) return;
-        await loadJobData(jobId, false);
-        showModalReport(true);
-        generateModalReport();
-    }
+    // populateModalJobSelect / onModalJobChange replaced by shared populateReportJobSelect / onReportJobChange
 
     // ==========================================
     // PROGRESS REPORT (with inline edit for admin)
