@@ -12,6 +12,7 @@
  *    - Execute as: Me
  *    - Who has access: Anyone
  * 8. Copy Web App URL dan letak di dalam HTML (APPS_SCRIPT_URL)
+ * 9. URL live: https://script.google.com/macros/s/AKfycbzBF7v4xeP0CYS9BLmXRorV9g3fUr_nLuDIbYRpVAzd9e-wIY163P5TPjYZIqSA5HEowA/exec
  */
 
 const SPREADSHEET_ID = '1EI9gpXc6bKu-KxlJ3UlqAShizH3yEhwfWIcJ1uYRPVM';
