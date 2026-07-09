@@ -2354,11 +2354,15 @@
             const profit = g.totalSale - g.totalModal; gS+=g.totalSale; gM+=g.totalModal;
             const sizeDesc = Object.entries(g.sizes).map(([s,info])=>s+'('+info.qty+')').join(', ');
             const pClass = profit>=0 ? 'text-green-700' : 'text-red-700';
+            // Actual unit sale prices (not average) — show range if mixed
+            const salePrices = Object.values(g.sizes).map(info => info.sale / info.qty);
+            const minSale = Math.min(...salePrices), maxSale = Math.max(...salePrices);
+            const saleUnitDisplay = minSale === maxSale ? 'RM '+minSale.toFixed(2) : 'RM '+minSale.toFixed(2)+' - RM '+maxSale.toFixed(2);
             const tr = document.createElement('tr'); tr.className='border-b border-gray-200 hover:bg-amber-50';
             const costInputId = 'job-cost-'+key.replace(/[^a-zA-Z0-9]/g,'_');
             tr.innerHTML = '<td class="p-3 border border-gray-300"><div class="font-medium">'+key+'</div><div class="text-[10px] text-gray-500 mt-0.5">Sizes: '+sizeDesc+'</div></td>'+
                 '<td class="p-3 border border-gray-300 text-center">'+g.quantity+'</td>'+
-                '<td class="p-3 border border-gray-300 text-right">RM '+(g.totalSale/g.quantity).toFixed(2)+'</td>'+
+                '<td class="p-3 border border-gray-300 text-right">'+saleUnitDisplay+'</td>'+
                 '<td class="p-3 border border-gray-300 text-right text-red-700"><input id="'+costInputId+'" type="number" step="0.5" value="'+getJobCost(g.collar,g.sleeve).toFixed(2)+'" oninput="updateJobCost(\''+key+'\',this.value)" class="w-24 px-2 py-1 border border-rose-300 rounded text-right text-sm outline-none"></td>'+
                 '<td class="p-3 border border-gray-300 text-right font-medium">RM '+g.totalSale.toFixed(2)+'</td>'+
                 '<td class="p-3 border border-gray-300 text-right font-medium text-red-700">RM '+g.totalModal.toFixed(2)+'</td>'+
