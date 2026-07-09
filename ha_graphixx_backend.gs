@@ -558,22 +558,41 @@ function apiUpdateJobStatus(params) {
 // SAVE QUOTE (admin set harga jualan untuk setiap item dalam job)
 function apiSaveQuote(params) {
   const jobId = String(params.jobId || '');
-  const quotes = params.quotes || [];
+  let quotes = params.quotes || [];
+  // Parse if quotes came as JSON string (GET query param)
+  if (typeof quotes === 'string') {
+    try { quotes = JSON.parse(quotes); } catch(e) { quotes = []; }
+  }
+  // Also handle individual quote params (quote_1, quote_2, etc.)
+  if (!Array.isArray(quotes) || quotes.length === 0) {
+    quotes = [];
+    for (const k in params) {
+      if (k.startsWith('quotes[') && k.endsWith('].bil')) {
+        const idx = k.match(/\d+/)[0];
+        quotes.push({ bil: parseInt(params['quotes['+idx+'].bil']), price: parseFloat(params['quotes['+idx+'].price']) });
+      }
+    }
+  }
   
   if (!jobId) return { ok: false, error: 'jobId required' };
+  if (!Array.isArray(quotes) || quotes.length === 0) return { ok: false, error: 'No quotes provided' };
   
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const jobsSheet = ss.getSheetByName('Jobs');
   const ordersSheet = ss.getSheetByName('Orders');
   
-  // Update job status to quoted
+  // Update job status — only set to 'quoted' if current status is not already a later stage
   const jobsData = jobsSheet.getDataRange().getValues();
   const now = new Date().toLocaleString('en-GB');
   let jobFound = false;
   for (let i = 1; i < jobsData.length; i++) {
     if (jobsData[i][0] === jobId) {
-      jobsSheet.getRange(i+1, 4).setValue('quoted');
-      jobsSheet.getRange(i+1, 9).setValue(now);
+      const curStatus = String(jobsData[i][3] || '');
+      // Only set to 'quoted' if not already quoted/revised/confirmed/etc
+      if (curStatus === 'reviewing' || curStatus === 'submitted' || curStatus === '') {
+        jobsSheet.getRange(i+1, 4).setValue('quoted');  // Status
+      }
+      jobsSheet.getRange(i+1, 10).setValue(now);         // Dikemaskini Pada
       jobFound = true;
       break;
     }
