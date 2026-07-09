@@ -272,13 +272,19 @@
                             <input type="text" id="input-remarks" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all" placeholder="e.g. 10">
                         </div>
                         <div class="lg:col-span-6 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mt-2 pt-3 border-t border-gray-800">
-                            <div class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 flex-1 sm:flex-none">
-                                <div class="flex items-center gap-3">
-                                    <span class="text-sm text-gray-400">Price:</span>
-                                    <span id="live-price" class="font-bold text-brand-400 text-lg">RM 0.00</span>
+                            <div class="flex flex-wrap items-center gap-3 flex-1">
+                                <div class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-sm text-gray-400">Price:</span>
+                                        <span id="live-price" class="font-bold text-brand-400 text-lg">RM 0.00</span>
+                                    </div>
+                                    <div id="price-breakdown" class="text-[11px] text-gray-500 mt-1 hidden">
+                                        <span id="bd-collar">Collar: RM0</span> + <span id="bd-sleeve">Sleeve: RM0</span> <span id="bd-surcharge"></span>
+                                    </div>
                                 </div>
-                                <div id="price-breakdown" class="text-[11px] text-gray-500 mt-1 hidden">
-                                    <span id="bd-collar">Collar: RM0</span> + <span id="bd-sleeve">Sleeve: RM0</span> <span id="bd-surcharge"></span>
+                                <div id="custom-price-field" class="hidden bg-amber-900/20 border border-amber-600 rounded-lg px-4 py-2.5">
+                                    <label class="block text-xs font-medium text-amber-300 mb-1">Custom Price (RM)</label>
+                                    <input type="number" id="input-custom-price" min="0" step="0.50" placeholder="0.00" class="w-28 px-3 py-2 bg-gray-800 border border-amber-600 rounded-lg text-white text-sm outline-none focus:border-amber-500">
                                 </div>
                             </div>
                             <button type="submit" class="bg-brand-600 hover:bg-brand-500 text-white font-medium py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2">
