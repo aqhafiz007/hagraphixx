@@ -450,7 +450,10 @@
             <div id="view-modal" class="hidden space-y-6 fade-in">
                 <div class="flex flex-col sm:flex-row justify-between items-center no-print gap-4 mb-4">
                     <h2 class="text-2xl font-bold text-white">Cost & Profit Calculator</h2>
-                    <div class="flex gap-3">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <select id="modal-job-select" onchange="onModalJobChange(this.value)" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-brand-500 outline-none">
+                            <option value="">Current Job</option>
+                        </select>
                         <button onclick="window.print()" class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-5 rounded-lg transition-colors text-sm">Print</button>
                         <button onclick="downloadPDF('modal')" class="bg-red-600 hover:bg-red-500 text-white font-medium py-2 px-5 rounded-lg transition-colors text-sm">Download PDF</button>
                     </div>
@@ -1731,10 +1734,11 @@
                         <button onclick="loadJobData('${j.jobId}')" class="text-brand-400 hover:text-brand-300 text-xs font-medium">Load</button>
                         <button onclick="loadJobForInvoice('${j.jobId}')" class="text-green-400 hover:text-green-300 text-xs font-medium ml-1">Invoice</button>
                         <button onclick="loadJobForStatus('${j.jobId}')" class="text-amber-400 hover:text-amber-300 text-xs font-medium ml-1">Status</button>
-                        ${isAdmin ? `<button onclick="openJobDetail('${j.jobId}')" class="text-cyan-400 hover:text-cyan-300 text-xs font-medium ml-1">Review</button><button onclick="deleteJobFromSheet('${j.jobId}')" class="text-red-400 hover:text-red-300 text-xs font-medium ml-1">Delete</button>` : ''}
+                        ${isAdmin ? `<button onclick="openJobDetail('${j.jobId}')" class="text-cyan-400 hover:text-cyan-300 text-xs font-medium ml-1">Review</button><button onclick="loadJobForCostProfit('${j.jobId}')" class="text-purple-400 hover:text-purple-300 text-xs font-medium ml-1">Cost</button><button onclick="deleteJobFromSheet('${j.jobId}')" class="text-red-400 hover:text-red-300 text-xs font-medium ml-1">Delete</button>` : ''}
                     </td>
                 </tr>`;
             }).join('');
+        populateModalJobSelect();
     }
 
     async function loadJobForInvoice(jobId) {
@@ -1745,6 +1749,11 @@
     async function loadJobForStatus(jobId) {
         await loadJobData(jobId);
         switchTab('progress');
+    }
+
+    async function loadJobForCostProfit(jobId) {
+        await loadJobData(jobId, false);
+        switchTab('modal');
     }
 
     // ==========================================
@@ -2105,15 +2114,16 @@
         });
     }
 
-    async function loadJobData(jobId) {
+    async function loadJobData(jobId, switchToInput = true) {
         const res = await apiCall('getJob', { jobId });
         if (!res.ok) { showMessage('Load failed', true); return; }
         const job = res.job;
         document.getElementById('global-job-name').value = job.namaJob || '';
         document.getElementById('global-invoice-no').value = job.noInvois || '';
         orders = (res.orders||[]).map((o,i) => ({ id:orderIdCounter++, name:(o.nama||'').toUpperCase(), collar:o.kolar, sleeve:o.lengan, size:o.saiz, remarks:o.remarks||'-', price:parseFloat(o.hargaUnit)||0, status:o.status||'pending' }));
+        jobCostMap = {}; // reset editable costs when switching jobs
         updateRawTable();
-        switchTab('input');
+        if (switchToInput) switchTab('input');
         showMessage('Job loaded: ' + job.namaJob);
     }
 
@@ -2285,6 +2295,9 @@
         const tbody = document.getElementById('modal-tbody');
         const tfoot = document.getElementById('modal-tfoot');
         const summary = document.getElementById('modal-summary');
+        const jobName = document.getElementById('global-job-name').value || 'Untitled';
+        const modName = document.getElementById('modal-job-name');
+        if (modName) modName.textContent = jobName.toUpperCase();
         tbody.innerHTML=''; tfoot.innerHTML=''; summary.innerHTML='';
         if(!orders.length) { tbody.innerHTML='<tr><td colspan="8" class="p-8 text-center text-gray-500">No data.</td></tr>'; return; }
         const totalQty = orders.length;
@@ -2331,6 +2344,20 @@
 
     function updateJobCost(key, val) {
         jobCostMap[key] = parseFloat(val) || 0;
+        generateModalReport();
+    }
+
+    function populateModalJobSelect() {
+        const sel = document.getElementById('modal-job-select');
+        if (!sel) return;
+        const current = sel.value;
+        sel.innerHTML = '<option value="">Current Job</option>' + savedJobs.map(j => '<option value="'+j.jobId+'">'+j.jobId+' - '+(j.namaJob||'Unnamed')+'</option>').join('');
+        sel.value = current;
+    }
+
+    async function onModalJobChange(jobId) {
+        if (!jobId) return;
+        await loadJobData(jobId, false);
         generateModalReport();
     }
 
