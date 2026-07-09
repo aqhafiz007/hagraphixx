@@ -524,6 +524,7 @@ function apiUpdateJobStatus(params) {
               if (userEmail && userEmail.indexOf('@') > -1) {
                 const statusLabels = {
                   submitted:'Submitted', reviewing:'Under Review', quoted:'Quoted - Price Set',
+                  'revised-quote':'Quote Revised - Please Review', 'counter-offer':'Counter Offer Received',
                   confirmed:'Confirmed', production:'In Production', ready:'Ready for Pickup',
                   delivered:'Delivered', completed:'Completed', rejected:'Rejected'
                 };
@@ -656,7 +657,7 @@ function updateSettingRow(sheet, key, value, timestamp) {
 function statusToStage(status) {
   const map = {
     'submitted': 0, 'reviewing': 0,
-    'quoted': 1, 'confirmed': 1,
+    'quoted': 1, 'confirmed': 1, 'revised-quote': 1, 'counter-offer': 1,
     'production': 2, 'ready': 4,
     'delivered': 5, 'completed': 5,
     'rejected': 0, 'pending': 0, 'Aktif': 2
@@ -668,7 +669,8 @@ function statusToStage(status) {
 function statusToLabel(status) {
   const map = {
     'submitted': 'Arranging Artwork', 'reviewing': 'Arranging Artwork',
-    'quoted': 'Awaiting Approval', 'confirmed': 'Awaiting Approval',
+    'quoted': 'Quote Ready - Please Review', 'revised-quote': 'Quote Revised - Please Review',
+    'counter-offer': 'Counter Offer Sent', 'confirmed': 'Awaiting Approval',
     'production': 'In Printing', 'ready': 'Ready for Pickup',
     'delivered': 'Completed', 'completed': 'Completed',
     'rejected': 'On Hold', 'pending': 'Arranging Artwork', 'Aktif': 'In Printing'
