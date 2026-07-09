@@ -2210,15 +2210,8 @@
             const key = o.collar + ' - ' + o.sleeve;
             if(!groups[key]) groups[key] = { name:key, quantity:0, sizes:{}, total:0 };
             groups[key].quantity++;
-            // Use custom price table if enabled, else per-item custom, else branded
-            let unitPrice;
-            if (brandingConfig.enabled && brandingConfig.markupType === 'custom') {
-                unitPrice = calculateCustomPrice(o.collar, o.sleeve, o.size);
-            } else if (o.customPrice && !isNaN(o.customPrice)) {
-                unitPrice = o.customPrice;
-            } else {
-                unitPrice = getBrandedPrice(o.price, o.collar, o.sleeve, o.size);
-            }
+            // Invoice shows only the AGREED sale price per item (no cost, no branding markup)
+            const unitPrice = (o.customPrice && !isNaN(o.customPrice)) ? o.customPrice : (parseFloat(o.price) || 0);
             if(!groups[key].sizes[o.size]) groups[key].sizes[o.size] = { qty:0, unitPrice:unitPrice };
             groups[key].sizes[o.size].qty++;
             groups[key].total += unitPrice;
