@@ -2326,15 +2326,15 @@
         if (isAdmin && filtered.length > 0) {
             const bulkRow = document.createElement('tr');
             bulkRow.className = 'bg-amber-50 border-b-2 border-amber-300';
-            bulkRow.innerHTML = '<td colspan="7" class="p-3">
+            bulkRow.innerHTML = `<td colspan="7" class="p-3">
                 <div class="flex flex-wrap gap-2 items-center text-xs text-amber-800">
                     <span class="font-semibold uppercase">Bulk Actions:</span>
-                    <button onclick="bulkSetStatus(\'pending\')" class="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded">All Pending</button>
-                    <button onclick="bulkSetStatus(\'production\')" class="bg-amber-600 hover:bg-amber-500 text-white px-2 py-1 rounded">All Production</button>
-                    <button onclick="bulkSetStatus(\'ready\')" class="bg-teal-600 hover:bg-teal-500 text-white px-2 py-1 rounded">All Ready</button>
-                    <button onclick="bulkSetStatus(\'delivered\')" class="bg-green-600 hover:bg-green-500 text-white px-2 py-1 rounded">All Delivered</button>
+                    <button onclick="bulkSetStatus('pending')" class="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded">All Pending</button>
+                    <button onclick="bulkSetStatus('production')" class="bg-amber-600 hover:bg-amber-500 text-white px-2 py-1 rounded">All Production</button>
+                    <button onclick="bulkSetStatus('ready')" class="bg-teal-600 hover:bg-teal-500 text-white px-2 py-1 rounded">All Ready</button>
+                    <button onclick="bulkSetStatus('delivered')" class="bg-green-600 hover:bg-green-500 text-white px-2 py-1 rounded">All Delivered</button>
                     <span class="ml-auto text-gray-500">Click any cell to edit (admin)</span>
-                </div></td>';
+                </div></td>`;
             tbody.appendChild(bulkRow);
         }
 
