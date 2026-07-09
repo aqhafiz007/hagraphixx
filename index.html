@@ -176,10 +176,19 @@
             <div id="view-input" class="hidden space-y-6 fade-in">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold text-white">Create New Job</h2>
-                    <button onclick="saveJobToSheet()" id="btn-save-job" class="bg-green-600 hover:bg-green-500 text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-green-600/20">
-                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                        Submit Job
-                    </button>
+                    <div class="flex gap-2">
+                        <span id="current-job-badge" class="hidden bg-blue-600/20 border border-blue-500 text-blue-300 text-xs font-medium px-3 py-2 rounded-lg items-center gap-1">
+                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/></svg>
+                            <span id="current-job-badge-text">Loaded: ...</span>
+                        </span>
+                        <button onclick="startNewJob()" id="btn-new-job" class="hidden bg-gray-700 hover:bg-gray-600 text-white font-medium px-4 py-2.5 rounded-lg transition-colors text-sm">
+                            New Job
+                        </button>
+                        <button onclick="saveJobToSheet()" id="btn-save-job" class="bg-green-600 hover:bg-green-500 text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-green-600/20">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            <span id="btn-save-label">Submit Job</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Quick Guide for non-admin -->
@@ -1031,6 +1040,7 @@
 
     let orders = [];
     let orderIdCounter = 1;
+    let currentJobId = null; // null = new job; set when a saved job is loaded
     let currentUser = null;
     let savedJobs = [];
     let currentCurrency = 'RM'; // RM, SGD, USD
@@ -1697,12 +1707,15 @@
         const namaJob = document.getElementById('global-job-name').value || 'Untitled';
         const noInvois = document.getElementById('global-invoice-no').value || '';
         const job = { namaJob, noInvois, status:'Aktif', config: JSON.stringify(pricingConfig) };
-        const orderData = orders.map((o,i) => ({ bil:i+1, lengan:o.sleeve, saiz:o.size, nama:o.name, kolar:o.collar, remarks:o.remarks, hargaUnit:o.price, status:o.status||'pending' }));
+        if (currentJobId) job.jobId = currentJobId; // update existing job instead of creating a new one
+        const orderData = orders.map((o,i) => ({ bil:o.bil||(i+1), lengan:o.sleeve, saiz:o.size, nama:o.name, kolar:o.collar, remarks:o.remarks, hargaUnit:o.price, status:o.status||'pending' }));
         showMessage('Saving to database...');
         const res = await apiCall('saveJob', { job, orders:orderData, userId:currentUser?.id||'', userRole:currentUser?.role||'' });
         if (res.ok) {
             showMessage('Job saved! ID: ' + res.jobId);
+            currentJobId = null; // reset for next job
             orders = []; orderIdCounter = 1; updateRawTable();
+            updateLoadedJobUI(null);
             loadDashboard();
         } else {
             showMessage('Save failed: ' + (res.error||'Unknown'), true);
@@ -2187,13 +2200,44 @@
         const res = await apiCall('getJob', { jobId });
         if (!res.ok) { showMessage('Load failed', true); return; }
         const job = res.job;
+        currentJobId = jobId; // track loaded job
         document.getElementById('global-job-name').value = job.namaJob || '';
         document.getElementById('global-invoice-no').value = job.noInvois || '';
-        orders = (res.orders||[]).map((o,i) => ({ id:orderIdCounter++, name:(o.nama||'').toUpperCase(), collar:o.kolar, sleeve:o.lengan, size:o.saiz, remarks:o.remarks||'-', price:parseFloat(o.hargaUnit)||0, status:o.status||'pending' }));
+        orders = (res.orders||[]).map((o,i) => ({ id:orderIdCounter++, bil:o.bil||(i+1), name:(o.nama||'').toUpperCase(), collar:o.kolar, sleeve:o.lengan, size:o.saiz, remarks:o.remarks||'-', price:parseFloat(o.hargaUnit)||0, status:o.status||'pending' }));
         jobCostMap = {}; // reset editable costs when switching jobs
         updateRawTable();
+        updateLoadedJobUI(job.namaJob || jobId);
         if (switchToInput) switchTab('input');
         showMessage('Job loaded: ' + job.namaJob);
+    }
+
+    function startNewJob() {
+        currentJobId = null;
+        orders = []; orderIdCounter = 1;
+        document.getElementById('global-job-name').value = '';
+        document.getElementById('global-invoice-no').value = '';
+        jobCostMap = {};
+        updateRawTable();
+        updateLoadedJobUI(null);
+        showMessage('New job started.');
+    }
+
+    function updateLoadedJobUI(jobName) {
+        const badge = document.getElementById('current-job-badge');
+        const badgeText = document.getElementById('current-job-badge-text');
+        const newBtn = document.getElementById('btn-new-job');
+        const saveLabel = document.getElementById('btn-save-label');
+        if (currentJobId) {
+            if (badge) { badge.classList.remove('hidden'); badge.classList.add('flex'); }
+            if (badgeText) badgeText.textContent = 'Editing: ' + jobName;
+            if (newBtn) newBtn.classList.remove('hidden');
+            if (saveLabel) saveLabel.textContent = 'Update Job';
+        } else {
+            if (badge) { badge.classList.add('hidden'); badge.classList.remove('flex'); }
+            if (badgeText) badgeText.textContent = '';
+            if (newBtn) newBtn.classList.add('hidden');
+            if (saveLabel) saveLabel.textContent = 'Submit Job';
+        }
     }
 
     async function deleteJobFromSheet(jobId) {
@@ -2513,26 +2557,39 @@
         const o = orders.find(x => x.id === id);
         if (!o) return;
         o[field] = field === 'name' ? value.toUpperCase() : value;
-        // Recalculate price if collar/sleeve/size changed
-        if (['collar','sleeve','size'].includes(field)) {
-            o.price = calculatePrice(o.collar, o.sleeve, o.size);
-            showMessage(field + ' updated → price recalculated: RM ' + o.price.toFixed(2));
-        } else {
-            showMessage(field + ' updated');
-        }
+        // Note: Changing collar/sleeve/size does NOT overwrite the agreed sale price.
+        // The agreed price (o.price) stays as-is unless explicitly edited by admin.
+        showMessage(field + ' updated');
         updateRawTable();
     }
 
-    function bulkSetStatus(newStatus) {
+    async function bulkSetStatus(newStatus) {
         if (!confirm('Set ALL ' + orders.length + ' items to "' + (statusLabels[newStatus]?.label || newStatus) + '"?')) return;
         orders.forEach(o => { o.status = newStatus; });
         generateProgressReport();
         showMessage('All ' + orders.length + ' items set to ' + (statusLabels[newStatus]?.label || newStatus));
+        // Persist all to backend
+        if (currentJobId) {
+            for (const o of orders) {
+                if (o.bil) {
+                    try { await apiCall('updateOrderStatus', { jobId: currentJobId, bil: o.bil, status: newStatus }); } catch(e) {}
+                }
+            }
+        }
     }
 
-    function updateOrderStatus(id, newStatus) {
+    async function updateOrderStatus(id, newStatus) {
         const o = orders.find(x => x.id === id);
-        if (o) { o.status = newStatus; showMessage('Status: ' + (statusLabels[newStatus]?.label || newStatus)); generateProgressReport(); }
+        if (!o) return;
+        o.status = newStatus;
+        showMessage('Status: ' + (statusLabels[newStatus]?.label || newStatus));
+        generateProgressReport();
+        // Persist to backend if this order belongs to a saved job
+        if (currentJobId && o.bil) {
+            try {
+                await apiCall('updateOrderStatus', { jobId: currentJobId, bil: o.bil, status: newStatus });
+            } catch(e) { /* silent - UI already updated */ }
+        }
     }
 
     // ==========================================
