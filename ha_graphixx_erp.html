@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HA.GRAPHIXX ERP - Jersey Order Management System</title>
+    <title>HA.GRAPHIXX ERP v1.1 Reliable - Jersey Order Management System</title>
+    <meta name="description" content="HA.GRAPHIXX reliable jersey order, quotation, invoice, payment and production management system">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -121,7 +122,12 @@
                                 <option value="SGD">SGD</option>
                                 <option value="USD">USD</option>
                             </select>
+                            <select id="language-selector" onchange="changeLanguage()" class="bg-gray-800 text-gray-300 text-xs rounded-md px-2 py-1.5 border border-gray-700 outline-none" title="Language">
+                                <option value="en">EN</option><option value="ms">BM</option>
+                            </select>
+                            <span id="connection-badge" class="text-[10px] bg-gray-800 text-gray-400 px-2 py-1 rounded-full" title="Connection status">Checking...</span>
                             <span id="user-badge" class="text-xs bg-brand-900 text-brand-300 px-2 py-1 rounded-full hidden"></span>
+                            <button onclick="openAccountModal()" class="bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium px-3 py-2 rounded-md transition-colors" title="Account & Security">Account</button>
                             <button onclick="logout()" class="bg-red-600 hover:bg-red-500 text-white text-sm font-medium px-3 py-2 rounded-md transition-colors flex items-center gap-1">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                                 <span class="hidden sm:inline">Logout</span>
@@ -217,12 +223,23 @@
                     </div>
                 </div>
 
+                <!-- Job Files / Artwork -->
+                <div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
+                    <div class="flex flex-col sm:flex-row justify-between gap-3 mb-4"><div><h3 class="text-lg font-semibold text-white">Job Files</h3><p class="text-xs text-gray-500">Artwork, logo, size list or payment proof. Save/load a job first. Maximum 5MB per file.</p></div><button onclick="loadJobFiles()" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded-lg">Refresh Files</button></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                        <div><label class="block text-xs text-gray-500 mb-1">File type</label><select id="job-file-type" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"><option value="artwork">Artwork</option><option value="logo">Logo</option><option value="size_list">Size List</option><option value="payment_proof">Payment Proof</option><option value="reference">Reference</option></select></div>
+                        <div class="sm:col-span-2"><label class="block text-xs text-gray-500 mb-1">Choose file</label><input id="job-file-input" type="file" accept="image/png,image/jpeg,image/webp,application/pdf,text/csv,.xlsx,.xls" class="w-full text-sm text-gray-400 file:bg-gray-700 file:text-white file:border-0 file:rounded file:px-3 file:py-2"></div>
+                        <button id="btn-upload-file" onclick="uploadJobFile()" class="bg-brand-600 hover:bg-brand-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium">Upload File</button>
+                    </div>
+                    <div id="job-files-list" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2"><p class="text-sm text-gray-600">No job loaded.</p></div>
+                </div>
+
                 <!-- Order Form -->
                 <div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-white">Add Order Item</h3>
                         <div class="flex gap-2">
-                            <button onclick="toggleImportModal()" class="text-xs bg-green-900/50 hover:bg-green-800 text-green-300 py-1 px-3 rounded-full transition-colors flex items-center gap-1 font-medium">
+                            <button id="btn-import-orders" onclick="toggleImportModal()" class="text-xs bg-green-900/50 hover:bg-green-800 text-green-300 py-1 px-3 rounded-full transition-colors flex items-center gap-1 font-medium">
                                 <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
                                 Import Sheets
                             </button>
@@ -293,7 +310,7 @@
                 <div class="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
                     <div class="px-6 py-4 border-b border-gray-800 flex justify-between items-center">
                         <h3 class="text-lg font-semibold text-white">Current Items (<span id="total-items">0</span> pcs)</h3>
-                        <button onclick="clearAllOrders()" class="text-sm text-red-400 hover:text-red-300 font-medium transition-colors">Clear All</button>
+                        <button id="btn-clear-orders" onclick="clearAllOrders()" class="text-sm text-red-400 hover:text-red-300 font-medium transition-colors">Clear All</button>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-sm">
@@ -305,7 +322,7 @@
                                     <th class="p-4 font-medium">Size</th>
                                     <th class="p-4 font-medium">Remarks</th>
                                     <th class="p-4 font-medium text-right">Price (RM)</th>
-                                    <th class="p-4 font-medium text-center admin-only">Action</th>
+                                    <th class="p-4 font-medium text-center">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="raw-order-list" class="divide-y divide-gray-800"></tbody>
@@ -325,6 +342,14 @@
                         Refresh
                     </button>
                 </div>
+                <div class="bg-gray-900 rounded-xl border border-gray-800 p-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
+                        <div class="sm:col-span-2"><label class="block text-xs text-gray-500 mb-1">Search job / invoice / customer / owner</label><input id="jobs-search" oninput="debouncedJobSearch()" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm outline-none" placeholder="Type to search..."></div>
+                        <div><label class="block text-xs text-gray-500 mb-1">Status</label><select id="jobs-status-filter" onchange="resetJobPageAndLoad()" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"><option value="all">All status</option><option value="submitted">Submitted</option><option value="reviewing">Reviewing</option><option value="quoted">Quoted</option><option value="confirmed">Confirmed</option><option value="production">Production</option><option value="ready">Ready</option><option value="delivered">Delivered</option><option value="completed">Completed</option><option value="rejected">Rejected</option></select></div>
+                        <div><label class="block text-xs text-gray-500 mb-1">Sort</label><select id="jobs-sort" onchange="resetJobPageAndLoad()" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="amount_desc">Highest total</option><option value="amount_asc">Lowest total</option><option value="name">Job name A–Z</option></select></div>
+                        <div class="flex gap-2"><button onclick="exportJobsCSV()" class="flex-1 bg-emerald-700 hover:bg-emerald-600 text-white text-sm px-3 py-2 rounded-lg">Export CSV</button><button onclick="loadJobsFromSheet()" class="bg-gray-700 hover:bg-gray-600 text-white text-sm px-3 py-2 rounded-lg">Refresh</button></div>
+                    </div>
+                </div>
                 <div class="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-sm">
@@ -342,6 +367,10 @@
                             </thead>
                             <tbody id="jobs-list-tbody" class="divide-y divide-gray-800"></tbody>
                         </table>
+                    </div>
+                    <div class="px-4 py-3 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm">
+                        <span id="jobs-page-info" class="text-gray-500">0 jobs</span>
+                        <div class="flex items-center gap-2"><button id="jobs-prev" onclick="changeJobsPage(-1)" class="px-3 py-1.5 bg-gray-800 text-gray-300 rounded disabled:opacity-40">Previous</button><span id="jobs-page-number" class="text-gray-400">Page 1</span><button id="jobs-next" onclick="changeJobsPage(1)" class="px-3 py-1.5 bg-gray-800 text-gray-300 rounded disabled:opacity-40">Next</button></div>
                     </div>
                 </div>
             </div>
@@ -469,6 +498,10 @@
                                     <td colspan="3" class="p-3 text-right font-medium text-amber-700">Tax/SST (<span id="inv-tax-rate">0</span>%):</td>
                                     <td class="p-3 text-right font-medium text-amber-700 whitespace-nowrap" id="inv-tax">RM 0.00</td>
                                 </tr>
+                                <tr id="inv-shipping-row" class="hidden bg-purple-50">
+                                    <td colspan="3" class="p-3 text-right font-medium text-purple-700">Shipping:</td>
+                                    <td class="p-3 text-right font-medium text-purple-700 whitespace-nowrap" id="inv-shipping">RM 0.00</td>
+                                </tr>
                                 <tr class="bg-gray-100 border-t-2 border-gray-300">
                                     <td colspan="3" class="p-4 text-right font-bold text-gray-700">GRAND TOTAL:</td>
                                     <td class="p-4 text-right font-bold text-xl text-brand-600 whitespace-nowrap" id="inv-grand-total">RM 0.00</td>
@@ -513,10 +546,22 @@
                             <input type="text" id="pay-balance" readonly class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm">
                         </div>
                     </div>
-                    <div class="flex gap-3">
-                        <button onclick="savePayment()" class="bg-green-600 hover:bg-green-500 text-white font-medium px-5 py-2.5 rounded-lg transition-colors text-sm">Save Payment</button>
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4 border-t border-gray-800 pt-4">
+                        <div><label class="block text-sm text-gray-400 mb-1">Discount (RM)</label><input type="number" id="inv-adjust-discount" step="0.5" min="0" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"></div>
+                        <div><label class="block text-sm text-gray-400 mb-1">Tax / SST (%)</label><input type="number" id="inv-adjust-tax" step="0.01" min="0" max="100" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"></div>
+                        <div><label class="block text-sm text-gray-400 mb-1">Shipping (RM)</label><input type="number" id="inv-adjust-shipping" step="0.5" min="0" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"></div>
+                        <button id="btn-save-adjustments" onclick="saveInvoiceAdjustments()" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm">Save Invoice Totals</button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                        <div><label class="block text-sm text-gray-400 mb-1">Method</label><select id="pay-method" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"><option value="bank_transfer">Bank Transfer</option><option value="cash">Cash</option><option value="card">Card</option><option value="e_wallet">E-Wallet</option><option value="other">Other</option></select></div>
+                        <div><label class="block text-sm text-gray-400 mb-1">Reference No.</label><input id="pay-reference" maxlength="120" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm" placeholder="Bank reference / receipt no."></div>
+                        <div><label class="block text-sm text-gray-400 mb-1">Note</label><input id="pay-note" maxlength="300" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm" placeholder="Optional note"></div>
+                    </div>
+                    <div class="flex flex-wrap gap-3 items-center">
+                        <button id="btn-save-payment" onclick="savePayment()" class="bg-green-600 hover:bg-green-500 text-white font-medium px-5 py-2.5 rounded-lg transition-colors text-sm">Save Payment</button>
                         <span id="pay-status-badge" class="text-xs font-bold px-3 py-2 rounded-full bg-gray-700 text-gray-300">UNPAID</span>
                     </div>
+                    <div class="mt-6 border-t border-gray-800 pt-4"><div class="flex justify-between items-center mb-3"><h4 class="font-semibold text-white">Payment History</h4><button onclick="loadPaymentHistory()" class="text-xs text-brand-400">Refresh</button></div><div id="payment-history-list" class="space-y-2 text-sm text-gray-400"><p>No transactions.</p></div></div>
                 </div>
             </div>
 
@@ -1037,6 +1082,31 @@
                             <h3 class="font-semibold text-red-400 mb-4 pb-2 border-b border-gray-700">Cost Price - Collar & Sleeve (RM)</h3>
                             <div id="settings-cost-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
                         </div>
+                        <div class="bg-gray-800/50 p-5 rounded-lg border border-gray-700">
+                            <h3 class="font-semibold text-cyan-400 mb-4 pb-2 border-b border-gray-700">Currency Rates (Base RM)</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4"><div><label class="block text-sm text-gray-400 mb-1">RM</label><input id="fx-rm" value="1" readonly class="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded text-gray-500"></div><div><label class="block text-sm text-gray-400 mb-1">SGD per RM</label><input id="fx-sgd" type="number" step="0.0001" min="0.0001" class="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded text-white"></div><div><label class="block text-sm text-gray-400 mb-1">USD per RM</label><input id="fx-usd" type="number" step="0.0001" min="0.0001" class="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded text-white"></div></div>
+                        </div>
+                        <div class="bg-gray-800/50 p-5 rounded-lg border border-gray-700">
+                            <h3 class="font-semibold text-sky-400 mb-4 pb-2 border-b border-gray-700">Business & Notifications</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-sm text-gray-400 mb-1">Customer Portal URL</label><input id="business-portal-url" type="url" class="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded text-white" placeholder="https://your-domain.com/portal"></div><div><label class="block text-sm text-gray-400 mb-1">Status Email Subject</label><input id="business-email-subject" class="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded text-white" placeholder="HA.GRAPHIXX - Job {jobId} - {status}"></div></div>
+                            <label class="mt-4 inline-flex items-center gap-2 text-sm text-gray-300"><input id="business-email-enabled" type="checkbox" class="rounded border-gray-600 bg-gray-900"> Send email when admin changes job status</label>
+                        </div>
+                        <div class="bg-gray-800/50 p-5 rounded-lg border border-gray-700">
+                            <h3 class="font-semibold text-emerald-400 mb-4 pb-2 border-b border-gray-700">Business Reports</h3>
+                            <div class="flex flex-col sm:flex-row gap-3"><select id="report-type" class="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded text-white"><option value="sales">All Sales</option><option value="monthly">Monthly Summary</option><option value="agent">Agent Summary</option><option value="unpaid">Unpaid Invoices</option><option value="production">Production Queue</option><option value="profit">Estimated Profit</option></select><button type="button" onclick="downloadBusinessReport()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-5 py-2 rounded-lg text-sm">Download Report CSV</button></div>
+                        </div>
+                        <div class="bg-gray-800/50 p-5 rounded-lg border border-gray-700">
+                            <h3 class="font-semibold text-purple-400 mb-4 pb-2 border-b border-gray-700">System Reliability & Backup</h3>
+                            <div class="flex flex-wrap gap-3"><button type="button" onclick="runHealthCheck()" class="bg-cyan-700 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg text-sm">Run Health Check</button><button type="button" onclick="createSystemBackup()" class="bg-purple-700 hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm">Create Backup Now</button><button type="button" onclick="installDailyBackup()" class="bg-indigo-700 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm">Enable Daily Backup</button><button type="button" onclick="exportSystemJSON()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm">Export Full JSON</button></div>
+                            <div id="health-check-result" class="mt-4 text-sm text-gray-400">Version: <span id="settings-version">1.1.0-reliable</span></div>
+                        </div>
+                        <div class="bg-gray-800/50 p-5 rounded-lg border border-gray-700">
+                            <h3 class="font-semibold text-rose-400 mb-4 pb-2 border-b border-gray-700">Admin: Reset User Password</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end"><div><label class="block text-sm text-gray-400 mb-1">User ID</label><input id="reset-user-id" class="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded text-white"></div><div><label class="block text-sm text-gray-400 mb-1">Temporary Password</label><input id="reset-user-password" type="password" minlength="10" class="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded text-white"></div><button type="button" onclick="adminResetUserPassword()" class="bg-rose-700 hover:bg-rose-600 text-white px-4 py-2 rounded-lg text-sm">Reset Password</button></div>
+                        </div>
+                        <div class="bg-gray-800/50 p-5 rounded-lg border border-gray-700">
+                            <h3 class="font-semibold text-amber-400 mb-4 pb-2 border-b border-gray-700">Account Security</h3><p class="text-sm text-gray-400 mb-3">Change your password regularly. Password requires minimum 10 characters, uppercase, lowercase and number.</p><button type="button" onclick="openAccountModal()" class="bg-amber-700 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm">Change Password</button>
+                        </div>
                         <div class="flex justify-between border-t border-gray-700 pt-6">
                             <button type="button" onclick="resetSettingsToDefault()" class="text-sm text-gray-500 hover:text-gray-300 font-medium transition-colors">Reset to Default</button>
                             <button type="submit" class="bg-brand-600 hover:bg-brand-500 text-white font-medium py-2.5 px-8 rounded-lg transition-colors flex items-center gap-2">
@@ -1079,6 +1149,10 @@
 
         </main>
 
+        <div id="account-modal" class="hidden fixed inset-0 bg-black/75 z-[90] flex items-center justify-center p-4"><div class="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-md p-6"><div class="flex justify-between items-center mb-5"><h3 class="text-lg font-bold text-white">Account Security</h3><button onclick="closeAccountModal()" class="text-gray-400 hover:text-white">✕</button></div><form id="account-password-form" class="space-y-4"><div><label class="block text-sm text-gray-400 mb-1">Current Password</label><input id="account-current-password" type="password" required class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"></div><div><label class="block text-sm text-gray-400 mb-1">New Password</label><input id="account-new-password" type="password" required minlength="10" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"></div><div><label class="block text-sm text-gray-400 mb-1">Confirm New Password</label><input id="account-confirm-password" type="password" required minlength="10" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"></div><button id="btn-change-password" type="submit" class="w-full bg-brand-600 hover:bg-brand-500 text-white py-2.5 rounded-lg font-medium">Update Password</button></form></div></div>
+        <div id="global-loading" class="hidden fixed inset-0 bg-gray-950/60 backdrop-blur-sm z-[95] flex items-center justify-center"><div class="bg-gray-900 border border-gray-700 rounded-xl px-6 py-5 shadow-2xl flex items-center gap-4"><div class="h-6 w-6 border-2 border-brand-400 border-t-transparent rounded-full animate-spin"></div><span id="global-loading-text" class="text-white font-medium">Working...</span></div></div>
+        <div class="fixed bottom-1 left-2 text-[10px] text-gray-700 no-print">HA.GRAPHIXX ERP <span id="app-version-label">v1.1.0-reliable</span></div>
+
         <!-- Message Box -->
         <div id="msg-box" class="fixed bottom-5 right-5 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 z-50 flex items-center gap-3">
             <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -1093,7 +1167,13 @@
         var app = document.getElementById('app-wrapper');
         if (app && app.classList.contains('hidden') === false) {
             var dash = document.getElementById('dash-stats');
-            if (dash) dash.innerHTML = '<div class="col-span-4 p-4 text-red-400 text-sm">Error: ' + msg + ' (line ' + line + ')</div>';
+            if (dash) {
+                dash.textContent = '';
+                var errorBox = document.createElement('div');
+                errorBox.className = 'col-span-4 p-4 text-red-400 text-sm';
+                errorBox.textContent = 'Error: ' + String(msg || 'Unknown error') + ' (line ' + String(line || '-') + ')';
+                dash.appendChild(errorBox);
+            }
         }
         return false;
     };
@@ -1102,6 +1182,8 @@
     // CONFIG - REPLACE with your Apps Script URL
     // ==========================================
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBF7v4xeP0CYS9BLmXRorV9g3fUr_nLuDIbYRpVAzd9e-wIY163P5TPjYZIqSA5HEowA/exec';
+    const APP_VERSION = '1.1.0-reliable';
+    const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
     const USE_OFFLINE_MODE = APPS_SCRIPT_URL.includes('GANTI_DENGAN') || APPS_SCRIPT_URL.includes('PASTE');
 
     // Show offline banner
@@ -1124,47 +1206,54 @@
 
     let orders = [];
     let orderIdCounter = 1;
+    let editingOrderId = null; // kalau sedang edit item sedia ada (kekal di posisi asal)
     let currentJobId = null; // null = new job; set when a saved job is loaded
     let loadedJob = null; // full job object from backend (for payment display)
     let currentUser = null;
     let sessionToken = null;
     let savedJobs = [];
+    let reportJobs = [];
     let currentCurrency = 'RM'; // RM, SGD, USD
     let currentPage = 'dashboard'; // track current page for currency refresh
+    let currentLanguage = localStorage.getItem('ha_graphixx_language') || 'en';
+    let currentPermissions = {};
+    let mustChangePassword = false;
+    let hasUnsavedChanges = false;
+    let jobsPage = 1, jobsPageSize = 25, jobsTotalPages = 1, jobsTotal = 0;
+    let jobsSearchTimer = null;
 
     // Currency formatter - auto-convert from RM base
-    const currencyRates = { RM: 1, SGD: 0.30, USD: 0.22 };
+    let currencyRates = { RM: 1, SGD: 0.30, USD: 0.22 };
     const currencySymbols = { 'RM':'RM', 'SGD':'S$', 'USD':'$', 'EUR':'€' };
     function fmtMoney(rmAmount) {
         const sym = currencySymbols[currentCurrency] || currentCurrency;
         const converted = (rmAmount || 0) * (currencyRates[currentCurrency] || 1);
         return sym + ' ' + converted.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
+    function toBaseRM(displayAmount){ return (Number(displayAmount)||0) / (currencyRates[currentCurrency]||1); }
+    function fromBaseRM(rmAmount){ return (Number(rmAmount)||0) * (currencyRates[currentCurrency]||1); }
     function changeCurrency() {
-        currentCurrency = document.getElementById('currency-selector').value;
-        updateCurrencyLabels();
-        updateRawTable();
-        // Re-render current view so dynamically-generated (RM) labels (e.g. dashboard
-        // "Revenue" card) pick up the new currency instead of staying stale.
-        if (currentPage === 'dashboard') loadDashboard();
-        if (currentPage === 'jobs') loadJobsFromSheet();
-        if (currentPage === 'invoice') generateInvoice();
-        if (currentPage === 'modal') { renderModalConfig(); generateModalReport(); }
-        if (currentPage === 'progress') generateProgressReport();
-        showMessage('Currency changed to ' + currentCurrency);
+        currentCurrency=document.getElementById('currency-selector').value;
+        localStorage.setItem('ha_graphixx_currency',currentCurrency);
+        updateCurrencyLabels();updateRawTable();
+        if(currentPage==='dashboard')loadDashboard();
+        if(currentPage==='jobs')loadJobsFromSheet();
+        if(currentPage==='invoice')generateInvoice();
+        if(currentPage==='modal'){renderModalConfig();generateModalReport();}
+        if(currentPage==='progress')generateProgressReport();
+        if(currentPage==='input' && currentJobId) markDirty();
+        showMessage('Currency changed to '+currentCurrency);
     }
 
     // Tukar semua label statik "(RM)" dalam UI kepada simbol currency semasa.
     // Elemen ditanda sekali dengan data-cur-template, kemudian di-update setiap tukaran.
     function updateCurrencyLabels() {
-        const sym = currencySymbols[currentCurrency] || currentCurrency;
-        document.querySelectorAll('th, label, h4, td, span, option, button').forEach(el => {
-            if (el.children.length > 0) return; // hanya elemen text tulen
-            if (!el.dataset.curTemplate) {
-                if (el.textContent.indexOf('(RM)') === -1) return;
-                el.dataset.curTemplate = el.textContent;
-            }
-            el.textContent = el.dataset.curTemplate.split('(RM)').join('(' + sym + ')');
+        const sym=currencySymbols[currentCurrency]||currentCurrency;
+        document.querySelectorAll('[data-currency-label]').forEach(el=>el.textContent=el.dataset.currencyLabel.replace('{currency}',sym));
+        document.querySelectorAll('th,label,h4,td,span,option,button').forEach(el=>{
+            if(el.children.length>0)return;
+            if(!el.dataset.curTemplate && el.textContent.indexOf('(RM)')!==-1)el.dataset.curTemplate=el.textContent;
+            if(el.dataset.curTemplate)el.textContent=el.dataset.curTemplate.replace(/\((RM|S\$|\$|SGD|USD)\)/g,'('+sym+')');
         });
     }
     // Simbol semasa untuk mesej prompt() dll.
@@ -1192,6 +1281,7 @@
 
     let pricingConfig = { rn_pendek:38, rn_panjang:38, rn_muslimah:44, rn_kid:33, polo:43, retro:45, surcharge_start:"3XL", surcharge_step:2 };
     let costConfig = { rn_pendek:18, rn_panjang:24, rn_muslimah:27, rn_kid:0, polo:23, retro:25, surcharge_start:"3XL", surcharge_step:2 };
+    let businessConfig = { portalUrl:'', emailNotifications:true, statusEmailSubject:'HA.GRAPHIXX - Job {jobId} - {status}' };
 
     // Helper: map collar/sleeve combination to the matching pricingConfig/costConfig key
     function pricingKey(collar, sleeve) {
@@ -1239,6 +1329,7 @@
 
     // Workflow order for admin
     const workflowSteps = ['submitted','reviewing','quoted','revised-quote','counter-offer','confirmed','production','ready','delivered','completed'];
+    const itemStatusKeys = ['pending','production','ready','delivered'];
     const adminActions = {
         submitted:  ['Start Review', 'Reject'],
         reviewing:  ['Set Price / Quote', 'Reject'],
@@ -1257,7 +1348,22 @@
     // API CALLER
     // ==========================================
     // Actions that write data — use POST to avoid URL length limits
-    const POST_ACTIONS = ['saveJob', 'deleteJob', 'saveQuote', 'saveSettings', 'updateJobStatus', 'updateOrderStatus', 'portalSubmitRequest', 'portalUpdateProfile', 'portalChangePassword', 'logout', 'updatePayment', 'quoteReply'];
+    const POST_ACTIONS = ['saveJob','deleteJob','saveQuote','saveSettings','updateJobStatus','updateOrderStatus','portalSubmitRequest','portalUpdateProfile','portalChangePassword','logout','updatePayment','quoteReply','changePassword','uploadFile','createBackup','installDailyBackup','adminResetPassword','updateInvoiceAdjustments'];
+
+    // Papar error API; kalau session tamat/expired, auto logout dengan mesej jelas.
+    function handleApiError(json) {
+        if (!json || !json.error) return;
+        if (json.mustChangePassword || json.error === 'PASSWORD_CHANGE_REQUIRED') {
+            mustChangePassword = true;
+            showMessage('Password change is required before continuing.', true);
+            setTimeout(openAccountModal,100);
+            return;
+        }
+        const isAuth = /session|expired|authentication|invalid or expired/i.test(json.error);
+        showMessage(isAuth ? 'Sesi tamat. Sila log masuk semula.' : ('API: ' + json.error), true);
+        if (isAuth && typeof logout === 'function') setTimeout(()=>logout(true),1800);
+    }
+
 
     async function apiCall(action, params = {}) {
         if (USE_OFFLINE_MODE) return offlineFallback(action, params);
@@ -1266,7 +1372,9 @@
             if (!params.token) params.token = sessionToken || '';
         }
         const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 15000);
+        const slowActions=['uploadFile','downloadFile','createBackup','exportData','healthCheck','exportReport'];
+        const timeoutMs=slowActions.includes(action)?60000:(POST_ACTIONS.includes(action)?30000:15000);
+        const t=setTimeout(()=>ctrl.abort(),timeoutMs);
         try {
             // Use POST for write operations to avoid URL length limits
             if (POST_ACTIONS.includes(action)) {
@@ -1286,8 +1394,9 @@
                 });
                 clearTimeout(t);
                 const json = await res.json();
+                setConnectionState(true);
                 if (!json.ok && json.error) {
-                    showMessage('API: ' + json.error, true);
+                    handleApiError(json);
                 }
                 return json;
             }
@@ -1305,12 +1414,16 @@
             });
             clearTimeout(t);
             const json = await res.json();
+            setConnectionState(true);
             if (!json.ok && json.error) {
-                showMessage('API: ' + json.error, true);
+                handleApiError(json);
             }
             return json;
         } catch(err) {
             clearTimeout(t);
+            setConnectionState(false);
+            const retryableReads=['getDashboard','getJobs','getJob','getSettings','getPaymentHistory','getFiles','getJobOptions'];
+            if(retryableReads.includes(action) && !params.__retried){await new Promise(r=>setTimeout(r,700));return apiCall(action,Object.assign({},params,{__retried:true}));}
             // Jangan benarkan login offline bila API fail — security risk
             if (action === 'login') {
                 showMessage('Server unreachable. Please try again later.', true);
@@ -1318,7 +1431,7 @@
             }
             // API down: HANYA bacaan (read) dibenarkan guna cache local.
             // Tindakan TULIS diblok terus — elak data "tersimpan" di browser sahaja.
-            const READ_ONLY_ACTIONS = ['getDashboard', 'getJobs', 'getJob', 'getSettings', 'getPaymentHistory', 'getAuditLog'];
+            const READ_ONLY_ACTIONS = ['getDashboard','getJobs','getJob','getSettings','getPaymentHistory','getAuditLog','getFiles','getJobOptions'];
             if (sessionToken && READ_ONLY_ACTIONS.includes(action)) {
                 showMessage('API offline — showing cached data (read-only)', true);
                 return offlineFallback(action, params);
@@ -1346,7 +1459,8 @@
                 const sc={pending:0,production:0,ready:0,delivered:0};
                 data.jobs.forEach(j=>{ totalH+=j.helai||0; totalR+=j.jumlah||0; if(j.status!=='completed'&&j.status!=='delivered')active++; });
                 return { ok:true, stats:{totalJobs:data.jobs.length,totalHelai:totalH,totalRevenue:totalR,activeJobs:active,statusCounts:sc}, recentJobs:data.jobs.slice(-5).reverse() };
-            case 'getJobs': return { ok:true, jobs:data.jobs };
+            case 'getJobs': return { ok:true, jobs:data.jobs, total:data.jobs.length, page:1, pageSize:data.jobs.length || 1, totalPages:1 };
+            case 'getJobOptions': return { ok:true, jobs:data.jobs.map(j=>({jobId:j.jobId,namaJob:j.namaJob,noInvois:j.noInvois,status:j.status})) };
             case 'saveJob':
                 const jobData = typeof params.job==='string'?JSON.parse(params.job):params.job;
                 const ordersData = typeof params.orders==='string'?JSON.parse(params.orders):(params.orders||[]);
@@ -1406,7 +1520,7 @@
                 }));
                 return { ok:true, job: jobDetail, orders: ordersList };
             case 'getSettings': {
-                const s = data.settings || {};
+                const s = Object.assign({}, data.settings || {});
                 // SECURITY: non-admin tidak boleh akses cost_config (modal supplier)
                 if (currentUser && currentUser.role !== 'admin') delete s.cost_config;
                 return { ok:true, settings: s };
@@ -1459,6 +1573,8 @@
             }
             currentUser = res.user;
             sessionToken = res.token || null;
+            currentPermissions = res.permissions || {};
+            mustChangePassword = !!res.mustChangePassword;
             performLogin();
         } catch(err) {
             const errBox = document.getElementById('login-error');
@@ -1470,39 +1586,40 @@
     function performLogin() {
         try {
             document.getElementById('login-overlay').classList.add('hidden');
-            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('login-overlay').style.display='none';
             document.getElementById('app-wrapper').classList.remove('hidden');
-            document.getElementById('app-wrapper').style.display = 'flex';
-            const badge = document.getElementById('user-badge');
-            const roleLabels = { admin:'Admin', agen:'Agen', customer:'Customer' };
-            badge.textContent = roleLabels[currentUser.role] + ': ' + currentUser.name;
+            document.getElementById('app-wrapper').style.display='flex';
+            const badge=document.getElementById('user-badge');
+            const roleLabels={admin:'Admin',agen:'Agen',customer:'Customer'};
+            badge.textContent=(roleLabels[currentUser.role]||currentUser.role)+': '+currentUser.name;
             badge.classList.remove('hidden');
-            applyRoleAccess();
-            try { loadBrandingOnLogin(); } catch(e) {}
-            showMessage('Welcome, ' + currentUser.name + '!');
-            switchTab('dashboard');
-            loadDashboard();
-            // Load saved settings from backend
-            if (currentUser.role === 'admin') loadSettingsFromBackend();
-        } catch(e) {
-            document.getElementById('app-wrapper').classList.remove('hidden');
-            document.getElementById('app-wrapper').style.display = 'flex';
-            var dash = document.getElementById('view-dashboard');
-            if (dash) { dash.classList.remove('hidden'); dash.innerHTML = '<div class="p-8 text-red-400">Error: ' + e.message + '</div>'; }
-        }
+            document.getElementById('language-selector').value=currentLanguage;
+            document.getElementById('app-version-label').textContent='v'+APP_VERSION;
+            applyRoleAccess(); applyLanguage(); setConnectionState(true);
+            showMessage('Welcome, '+currentUser.name+'!');
+            if(mustChangePassword){
+                showMessage('Please change your temporary password before continuing.',true);
+                setTimeout(openAccountModal,250);
+                return;
+            }
+            initializeWorkspaceAfterLogin();
+        } catch(e) { showMessage('App startup error: '+e.message,true); }
     }
 
-    async function logout() {
-        if (sessionToken) {
-            try { await apiCall('logout', {}); } catch(e) {}
-        }
-        currentUser = null; sessionToken = null; orders = []; orderIdCounter = 1;
-        document.getElementById('app-wrapper').classList.add('hidden');
-        document.getElementById('app-wrapper').style.display = 'none';
-        document.getElementById('login-overlay').classList.remove('hidden');
-        document.getElementById('login-overlay').style.display = 'flex';
-        document.getElementById('loginForm').reset();
-        document.getElementById('user-badge').classList.add('hidden');
+    function initializeWorkspaceAfterLogin() {
+        try{loadBrandingOnLogin();}catch(e){}
+        loadSettingsFromBackend();
+        ensureReportJobOptions();
+        switchTab('dashboard');
+    }
+
+    async function logout(force=false) {
+        if(!force && hasUnsavedChanges && !confirm('You have unsaved order changes. Logout anyway?')) return;
+        if(sessionToken && !force){try{await apiCall('logout',{});}catch(e){}}
+        currentUser=null; sessionToken=null; currentPermissions={}; mustChangePassword=false; orders=[]; orderIdCounter=1; currentJobId=null; loadedJob=null; hasUnsavedChanges=false;
+        document.getElementById('app-wrapper').classList.add('hidden'); document.getElementById('app-wrapper').style.display='none';
+        document.getElementById('login-overlay').classList.remove('hidden'); document.getElementById('login-overlay').style.display='flex';
+        document.getElementById('loginForm').reset(); document.getElementById('user-badge').classList.add('hidden'); closeAccountModal();
     }
 
     function applyRoleAccess() {
@@ -1523,39 +1640,25 @@
     // TAB SWITCHING
     // ==========================================
     function switchTab(tab) {
-        updateCurrencyLabels(); // refresh any static (RM) labels to current currency
-        if (currentUser && currentUser.role !== 'admin') {
-            if (['ordersheet','modal','settings'].includes(tab)) { showMessage('Access denied: Admin only tab.', true); return; }
-        }
-        const views = ['dashboard','input','review','jobs','ordersheet','invoice','modal','progress','branding','settings'];
-        views.forEach(v => {
-            const el = document.getElementById('view-'+v);
-            if (el) el.classList.add('hidden');
-        });
-        const viewEl = document.getElementById('view-'+tab);
-        if (viewEl) viewEl.classList.remove('hidden');
-        views.forEach(v => {
-            const btn = document.getElementById('tab-'+v);
-            if (btn) { btn.classList.remove('bg-brand-600','text-white'); btn.classList.add('text-gray-300','hover:bg-gray-800'); }
-        });
-        const activeBtn = document.getElementById('tab-'+tab);
-        if (activeBtn) { activeBtn.classList.add('bg-brand-600','text-white'); activeBtn.classList.remove('text-gray-300','hover:bg-gray-800'); }
-
-        const jobName = document.getElementById('global-job-name')?.value || 'No Job Name';
-        const osName = document.getElementById('os-job-name'); if (osName) osName.textContent = jobName.toUpperCase();
-        const invName = document.getElementById('inv-job-name'); if (invName) invName.textContent = jobName.toUpperCase();
-        const modName = document.getElementById('modal-job-name'); if (modName) modName.textContent = jobName.toUpperCase();
-        const progName = document.getElementById('progress-job-name'); if (progName) progName.textContent = jobName.toUpperCase();
-
-        if (tab==='dashboard') loadDashboard();
-        if (tab==='review') loadReviewJobs();
-        if (tab==='ordersheet') { populateReportJobSelect('ordersheet-job-select'); generateOrderSheet(); }
-        if (tab==='invoice') { populateReportJobSelect('invoice-job-select'); generateInvoice(); }
-        if (tab==='modal') { populateReportJobSelect('modal-job-select'); renderModalConfig(); if (orders.length) { showModalReport(true); generateModalReport(); } else { showModalReport(false); } }
-        if (tab==='progress') generateProgressReport();
-        if (tab==='branding') loadBrandingForm();
-        if (tab==='settings') renderSettingsForm();
-        if (tab==='jobs') loadJobsFromSheet();
+        if(currentPage==='input' && tab!=='input' && hasUnsavedChanges && !confirm('Order has unsaved changes. Leave this page?')) return;
+        if(currentUser && currentUser.role!=='admin' && ['ordersheet','modal','settings','review'].includes(tab)){showMessage('Access denied: Admin only tab.',true);return;}
+        currentPage=tab; updateCurrencyLabels();
+        const views=['dashboard','input','review','jobs','ordersheet','invoice','modal','progress','branding','settings'];
+        views.forEach(v=>{const el=document.getElementById('view-'+v);if(el)el.classList.add('hidden');});
+        const viewEl=document.getElementById('view-'+tab);if(viewEl)viewEl.classList.remove('hidden');
+        views.forEach(v=>{const btn=document.getElementById('tab-'+v);if(btn){btn.classList.remove('bg-brand-600','text-white');btn.classList.add('text-gray-300','hover:bg-gray-800');}});
+        const activeBtn=document.getElementById('tab-'+tab);if(activeBtn){activeBtn.classList.add('bg-brand-600','text-white');activeBtn.classList.remove('text-gray-300','hover:bg-gray-800');}
+        const jobName=document.getElementById('global-job-name')?.value||'No Job Name';
+        [['os-job-name',jobName],['inv-job-name',jobName],['modal-job-name',jobName],['progress-job-name',jobName]].forEach(x=>{const el=document.getElementById(x[0]);if(el)el.textContent=String(x[1]).toUpperCase();});
+        if(tab==='dashboard')loadDashboard();
+        if(tab==='review')loadReviewJobs();
+        if(tab==='ordersheet'){populateReportJobSelect('ordersheet-job-select');generateOrderSheet();}
+        if(tab==='invoice'){populateReportJobSelect('invoice-job-select');generateInvoice();loadPaymentHistory();}
+        if(tab==='modal'){populateReportJobSelect('modal-job-select');renderModalConfig();if(orders.length){showModalReport(true);generateModalReport();}else showModalReport(false);}
+        if(tab==='progress')generateProgressReport();
+        if(tab==='branding')loadBrandingForm();
+        if(tab==='settings'){renderSettingsForm();renderReliabilitySettings();}
+        if(tab==='jobs')loadJobsFromSheet();
     }
 
     // Shared job dropdown for invoice, order sheet, cost & profit
@@ -1565,9 +1668,9 @@
         const current = sel.value;
         const currentJobName = document.getElementById('global-job-name')?.value || '';
         sel.innerHTML = '<option value="">-- Select Job --</option>' +
-            savedJobs.map(j => '<option value="'+j.jobId+'">'+j.jobId+' - '+(j.namaJob||'Unnamed')+'</option>').join('');
+            reportJobs.map(j => '<option value="'+esc(j.jobId)+'">'+esc(j.jobId)+' - '+esc(j.namaJob||'Unnamed')+'</option>').join('');
         // Try to keep current loaded job selected
-        const loaded = savedJobs.find(j => (j.namaJob||'').toUpperCase() === currentJobName.toUpperCase());
+        const loaded = reportJobs.find(j => (j.namaJob||'').toUpperCase() === currentJobName.toUpperCase());
         if (loaded && sel.querySelector('option[value="'+loaded.jobId+'"]')) {
             sel.value = loaded.jobId;
         } else if (sel.querySelector('option[value="'+current+'"]')) {
@@ -1782,7 +1885,16 @@
         if (price === basePrice && brandingConfig.enabled) {
             price = effectiveItemPrice(collar, sleeve, size);
         }
-        orders.push({ id: orderIdCounter++, name, collar, sleeve, size, remarks, price, basePrice, customPrice, status:'pending' });
+        if (editingOrderId !== null) {
+            // Ganti item sedia ada di posisi yang sama (edit kekal susunan asal)
+            const idx = orders.findIndex(x => x.id === editingOrderId);
+            if (idx !== -1) orders[idx] = { id: editingOrderId, bil: orders[idx].bil || 0, name, collar, sleeve, size, remarks, price, basePrice, customPrice, status: orders[idx].status || 'pending' };
+            markDirty();
+            editingOrderId = null;
+        } else {
+            orders.push({ id: orderIdCounter++, bil:0, name, collar, sleeve, size, remarks, price, basePrice, customPrice, status:'pending' });
+            markDirty();
+        }
         updateRawTable();
         this.reset();
         document.getElementById('input-name').focus();
@@ -1790,51 +1902,47 @@
         showMessage('Item added!');
     });
 
-    function deleteOrder(id) { orders = orders.filter(o=>o.id!==id); updateRawTable(); showMessage('Item deleted', true); }
-    function clearAllOrders() { if(!orders.length)return; orders=[]; updateRawTable(); showMessage('All cleared', true); }
+    function deleteOrder(id){if(!isCurrentJobEditable()){showMessage('This job is locked.',true);return;}if(!confirm('Delete this item?'))return;orders=orders.filter(o=>o.id!==id);markDirty();updateRawTable();showMessage('Item deleted',true);}
+    function clearAllOrders(){if(!isCurrentJobEditable()){showMessage('This job is locked.',true);return;}if(!orders.length)return;if(!confirm('Clear all order items?'))return;orders=[];orderIdCounter=1;editingOrderId=null;markDirty();updateRawTable();showMessage('All cleared',true);}
 
     function toggleImportModal() {
+        if(!isCurrentJobEditable()){showMessage('This job is locked.',true);return;}
         const m = document.getElementById('import-modal');
         m.classList.toggle('hidden');
         if(!m.classList.contains('hidden')) { document.getElementById('import-data').value=''; document.getElementById('import-data').focus(); }
     }
 
     function processImport() {
-        const raw = document.getElementById('import-data').value;
-        if(!raw.trim()) { showMessage('Paste data first!', true); return; }
-        const rows = raw.split('\n').filter(r => r.trim());
-        if(rows.length === 0) { showMessage('No data found!', true); return; }
-
-        // AUTO-DETECT: kenal pasti kolum dari header (baris pertama) atau auto-teka
-        const firstCols = rows[0].split('\t').map(c => c.trim().toLowerCase());
-        const headerMap = detectColumns(firstCols);
-        const hasHeader = headerMap._hasHeader;
-        const startRow = hasHeader ? 1 : 0;
-        let count = 0;
-        let skipped = 0;
-
-        for(let i = startRow; i < rows.length; i++) {
-            const cols = rows[i].split('\t');
-            const sleeve = normalizeSleeve(cols[headerMap.sleeve] || '');
-            const size = normalizeSize(cols[headerMap.size] || '');
-            const collar = normalizeCollar(cols[headerMap.collar] || '');
-            const name = (cols[headerMap.name] || '').trim().toUpperCase() || 'NO NAME';
-            const remarks = (cols[headerMap.remarks !== -1 ? headerMap.remarks : -1] || '').trim() || '-';
-
-            // Skip jika semua kosong
-            if(!sleeve && !size && !name && !collar) { skipped++; continue; }
-
-            const price = effectiveItemPrice(collar, sleeve, size);
-            orders.push({ id: orderIdCounter++, name, collar, sleeve, size, remarks, price, basePrice: price, customPrice: null, status:'pending' });
-            count++;
+        const raw=document.getElementById('import-data').value;
+        if(!raw.trim()){showMessage('Paste data first!',true);return;}
+        const rows=raw.replace(/\r/g,'').split('\n').filter(r=>r.trim());
+        const firstCols=rows[0].split('\t').map(c=>c.trim().toLowerCase());
+        const headerMap=detectColumns(firstCols), startRow=headerMap._hasHeader?1:0;
+        const sizeAliases={XXL:'2XL',XXXL:'3XL',XXXXL:'4XL',XXXXXL:'5XL',XXXXXXL:'6XL','2X':'2XL','3X':'3XL','4X':'4XL','5X':'5XL','6X':'6XL'};
+        const knownSleeve=v=>/pendek|short|panjang|long|muslimah|kid/i.test(v||'');
+        const knownCollar=v=>!String(v||'').trim() || /round|\brn\b|polo|retro|mandarin|v[-\s]?neck/i.test(v||'');
+        let count=0,skipped=0; const errors=[];
+        for(let i=startRow;i<rows.length;i++){
+            const cols=rows[i].split('\t');
+            const rawSleeve=(cols[headerMap.sleeve]||'').trim();
+            let rawSize=(cols[headerMap.size]||'').trim().toUpperCase().replace(/[\s-]/g,'');
+            rawSize=sizeAliases[rawSize]||rawSize;
+            const rawCollar=(cols[headerMap.collar]||'').trim();
+            const name=(cols[headerMap.name]||'').trim().toUpperCase();
+            const remarks=(cols[headerMap.remarks!==-1?headerMap.remarks:-1]||'').trim()||'-';
+            if(!rawSleeve&&!rawSize&&!rawCollar&&!name){skipped++;continue;}
+            if(!name){errors.push('Row '+(i+1)+': missing name');continue;}
+            if(sizeOrder.indexOf(rawSize)===-1){errors.push('Row '+(i+1)+': invalid size "'+rawSize+'"');continue;}
+            if(!knownSleeve(rawSleeve)){errors.push('Row '+(i+1)+': invalid sleeve "'+rawSleeve+'"');continue;}
+            if(!knownCollar(rawCollar)){errors.push('Row '+(i+1)+': invalid collar "'+rawCollar+'"');continue;}
+            const sleeve=normalizeSleeve(rawSleeve), collar=normalizeCollar(rawCollar), size=rawSize;
+            const price=effectiveItemPrice(collar,sleeve,size);
+            orders.push({id:orderIdCounter++,bil:0,name,collar,sleeve,size,remarks,price,basePrice:price,customPrice:null,status:'pending'});count++;
         }
-
-        updateRawTable(); toggleImportModal();
-        if(count > 0) {
-            showMessage(count + ' items imported!' + (skipped > 0 ? ' (' + skipped + ' empty rows skipped)' : ''));
-        } else {
-            showMessage('No valid data found. Check your column order.', true);
-        }
+        updateRawTable();
+        if(count){markDirty();toggleImportModal();showMessage(count+' items imported'+(skipped?' · '+skipped+' empty skipped':'')+(errors.length?' · '+errors.length+' invalid skipped':''));}
+        else showMessage('No valid rows imported. '+errors.slice(0,3).join(' | '),true);
+        if(errors.length)console.warn('Import validation:',errors);
     }
 
     // AUTO-DETECT kolum berdasarkan header atau teka dari data
@@ -1900,12 +2008,36 @@
         return map;
     }
 
+    function isCurrentJobEditable() {
+        if (!currentUser) return false;
+        if (currentUser.role === 'admin' || !currentJobId) return true;
+        return ['submitted','reviewing','rejected'].includes(String(loadedJob?.status || 'submitted').toLowerCase());
+    }
+
+    function applyJobEditingState() {
+        const editable = isCurrentJobEditable();
+        document.querySelectorAll('#orderForm input,#orderForm select,#orderForm button').forEach(el => {
+            el.disabled = !editable;
+            el.classList.toggle('opacity-50', !editable);
+        });
+        ['global-job-name','global-invoice-no','btn-save-job','btn-import-orders','btn-clear-orders'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.disabled = !editable;
+            el.classList.toggle('opacity-50', !editable);
+            el.classList.toggle('cursor-not-allowed', !editable);
+        });
+        const label = document.getElementById('btn-save-label');
+        if (label) label.textContent = editable ? (currentJobId ? 'Update Job' : 'Submit Job') : 'Job Locked';
+    }
+
     function updateRawTable() {
         const tbody = document.getElementById('raw-order-list');
         document.getElementById('total-items').textContent = orders.length;
         if(!orders.length) { tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-gray-600">No items added yet.</td></tr>'; return; }
         const isAdmin = currentUser && currentUser.role==='admin';
         const isCustomMode = brandingConfig.enabled && brandingConfig.markupType === 'custom';
+        const canEdit = isCurrentJobEditable();
         tbody.innerHTML = orders.map((o,i) => {
             // In custom mode, display price from custom table
             const displayPrice = isCustomMode ? calculateCustomPrice(o.collar, o.sleeve, o.size) : o.price;
@@ -1918,15 +2050,15 @@
                 <td class="p-4 border-b border-gray-800 font-medium text-brand-400">${esc(o.size)}</td>
                 <td class="p-4 border-b border-gray-800">${esc(o.remarks)}</td>
                 <td class="p-4 border-b border-gray-800 text-right font-medium">${priceLabel}</td>
-                <td class="p-4 border-b border-gray-800 text-center">
+                <td class="p-4 border-b border-gray-800 text-center">${canEdit ? `
                     <button onclick="editOrder(${o.id})" class="text-blue-400 hover:text-blue-300 p-1" title="Edit item"><svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM2 14l8.5-8.5 2.828 2.828L4.828 16.828 2 14z"/><path fill-rule="evenodd" d="M2 14l.707.707L2 14zm0 0l3 3-3-3z" clip-rule="evenodd"/></svg></button>
-                    <button onclick="deleteOrder(${o.id})" class="text-red-400 hover:text-red-300 p-1" title="Delete item"><svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg></button>
-                </td>
+                    <button onclick="deleteOrder(${o.id})" class="text-red-400 hover:text-red-300 p-1" title="Delete item"><svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg></button>` : '<span class="text-xs text-gray-600">Locked</span>'}</td>
             </tr>`;
         }).join('');
     }
 
     function editOrder(id) {
+        if(!isCurrentJobEditable()){showMessage('This job is locked.',true);return;}
         const o = orders.find(x => x.id === id);
         if (!o) return;
         // Fill the form with the item's values
@@ -1938,8 +2070,13 @@
         const sizeSelect = document.getElementById('input-size');
         if ([...sizeSelect.options].some(opt => opt.value === o.size)) sizeSelect.value = o.size;
         document.getElementById('input-remarks').value = o.remarks === '-' ? '' : o.remarks;
-        // Remove the item being edited
-        orders = orders.filter(x => x.id !== id);
+        // Paparkan harga custom (jika ada) supaya kekal bila disimpan semula
+        const cpi = document.getElementById('input-custom-price');
+        if (cpi) {
+            cpi.value = (o.customPrice && o.customPrice > 0) ? o.customPrice : '';
+        }
+        // JANGAN buang item — edit kekal di posisi asal (ganti bila submit).
+        editingOrderId = id;
         updateRawTable();
         document.getElementById('input-name').focus();
         showMessage('Editing item — update and Add to save changes.');
@@ -1949,80 +2086,37 @@
     // SAVE JOB TO DATABASE
     // ==========================================
     async function saveJobToSheet() {
-        if (orders.length === 0) { showMessage('Add items first!', true); return; }
-        const namaJob = document.getElementById('global-job-name').value || 'Untitled';
-        const noInvois = document.getElementById('global-invoice-no').value || '';
-        const job = { namaJob, noInvois, config: JSON.stringify(pricingConfig) };
-        if (currentJobId) {
-            job.jobId = currentJobId; // update existing job — status TIDAK dihantar (kekal di backend)
-        } else {
-            job.status = 'submitted'; // job baru sahaja mula sebagai submitted
-        }
-        const orderData = orders.map((o,i) => ({ bil:o.bil||(i+1), lengan:o.sleeve, saiz:o.size, nama:o.name, kolar:o.collar, remarks:o.remarks, hargaUnit:o.price, basePrice:o.basePrice||o.price, customPrice:o.customPrice||null, status:o.status||'pending' }));
-        showMessage('Saving to database...');
-        const res = await apiCall('saveJob', { job, orders:orderData, userId:currentUser?.id||'', userRole:currentUser?.role||'' });
-        if (res.ok) {
-            showMessage('Job saved! ID: ' + res.jobId);
-            currentJobId = null; // reset for next job
-            orders = []; orderIdCounter = 1; updateRawTable();
-            updateLoadedJobUI(null);
-            loadDashboard();
-        } else {
-            showMessage('Save failed: ' + (res.error||'Unknown'), true);
-        }
+        if(!isCurrentJobEditable()){showMessage('This job is locked after quotation. Contact admin for changes.',true);return;}
+        if(!orders.length){showMessage('Add items first!',true);return;}
+        const namaJob=document.getElementById('global-job-name').value.trim();
+        if(!namaJob){showMessage('Job name is required.',true);document.getElementById('global-job-name').focus();return;}
+        const btn=document.getElementById('btn-save-job'); if(btn.disabled)return;
+        setButtonBusy(btn,true,'Saving...');
+        const noInvois=document.getElementById('global-invoice-no').value.trim();
+        const job={namaJob,noInvois,config:pricingConfig,currency:currentCurrency,fxRate:currencyRates[currentCurrency]||1,locale:currentLanguage==='ms'?'ms-MY':'en-MY'};
+        if(currentJobId)job.jobId=currentJobId;else job.status='submitted';
+        const orderData=orders.map((o,i)=>({bil:o.bil||0,lengan:o.sleeve,saiz:o.size,nama:o.name,kolar:o.collar,remarks:o.remarks,hargaUnit:o.price,basePrice:o.basePrice||o.price,status:o.status||'pending'}));
+        try{
+            const res=await apiCall('saveJob',{job,orders:orderData});
+            if(res&&res.ok){hasUnsavedChanges=false;showMessage('Job saved! ID: '+res.jobId);currentJobId=res.jobId;await loadJobData(res.jobId,false);updateLoadedJobUI(namaJob);loadDashboard();}
+            else showMessage('Save failed: '+(res?.error||'Unknown'),true);
+        }finally{setButtonBusy(btn,false);}
     }
 
     // ==========================================
     // DASHBOARD
     // ==========================================
     async function loadDashboard() {
-        try {
-            const res = await apiCall('getDashboard');
-            if (!res || !res.ok) {
-                document.getElementById('dash-stats').innerHTML = '<div class="col-span-4 p-8 text-center text-gray-500">No data available</div>';
-                document.getElementById('dash-recent-jobs').innerHTML = '<tr><td colspan="6" class="p-8 text-center text-gray-600">No jobs yet.</td></tr>';
-                return;
-            }
-            const s = res.stats || {};
-            const cards = [
-                { label:'Total Jobs', value:s.totalJobs||0, color:'brand', icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />' },
-                { label:'Total Pieces', value:s.totalHelai||0, color:'green', icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />' },
-                { label:'Revenue (' + (currencySymbols[currentCurrency]||currentCurrency) + ')', value:fmtMoney(s.totalRevenue||0), color:'amber', icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />' },
-                { label:'Active Jobs', value:s.activeJobs||0, color:'purple', icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />' }
-            ];
-            document.getElementById('dash-stats').innerHTML = cards.map(c => `
-                <div class="bg-gray-900 rounded-xl border border-gray-800 p-5">
-                    <div class="flex items-center gap-3 mb-2">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-${c.color}-900/40">
-                            <svg class="h-5 w-5 text-${c.color}-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">${c.icon}</svg>
-                        </div>
-                        <span class="text-xs text-gray-500 uppercase font-medium">${c.label}</span>
-                    </div>
-                    <div class="text-3xl font-bold text-white">${c.value}</div>
-                </div>`).join('');
-
-            const recent = res.recentJobs || [];
-            document.getElementById('dash-recent-jobs').innerHTML = recent.length === 0
-                ? '<tr><td colspan="6" class="p-8 text-center text-gray-600">No jobs yet. Create one in "New Job" tab.</td></tr>'
-                : recent.map(j => {
-                    const st = getJobStatus(j);
-                    const info = statusLabels[st] || statusLabels['submitted'];
-                    return `<tr class="border-b border-gray-800 hover:bg-gray-800/30 cursor-pointer" onclick="viewJob('${esc(j.jobId)}')">
-                        <td class="p-3 text-xs text-gray-500 font-mono">${j.jobId||'-'}</td>
-                        <td class="p-3 font-medium text-white">${j.namaJob||'-'}</td>
-                        <td class="p-3 hidden sm:table-cell text-gray-400">${j.noInvois||'-'}</td>
-                        <td class="p-3 text-center text-gray-300">${j.helai||0}</td>
-                        <td class="p-3 text-right font-medium text-brand-400">${(j.jumlah||0).toFixed(2)}</td>
-                        <td class="p-3 text-center"><span class="text-xs px-2 py-1 rounded-full border ${info.color}">${info.label}</span></td>
-                    </tr>`;
-                }).join('');
-
-            if (currentUser && currentUser.role === 'admin') {
-                loadReviewJobs();
-            }
-        } catch(e) {
-            document.getElementById('dash-stats').innerHTML = '<div class="col-span-4 p-8 text-center text-red-400">Error loading dashboard: ' + e.message + '</div>';
-        }
+        try{
+            const res=await apiCall('getDashboard');
+            if(!res||!res.ok){document.getElementById('dash-stats').innerHTML='<div class="col-span-4 p-8 text-center text-gray-500">No data available</div>';return;}
+            const s=res.stats||{}, canSeeRevenue=currentUser?.role==='admin'||currentUser?.role==='agen';
+            const cards=[{label:'Total Jobs',value:s.totalJobs||0,color:'brand'},{label:'Total Pieces',value:s.totalHelai||0,color:'green'},{label:canSeeRevenue?'Revenue':'Orders',value:canSeeRevenue?fmtMoney(s.totalRevenue||0):(s.totalOrders||0),color:'amber'},{label:'Active Jobs',value:s.activeJobs||0,color:'purple'}];
+            document.getElementById('dash-stats').innerHTML=cards.map(c=>`<div class="bg-gray-900 rounded-xl border border-gray-800 p-5"><span class="text-xs text-gray-500 uppercase font-medium">${esc(c.label)}</span><div class="text-3xl font-bold text-white mt-2">${esc(c.value)}</div></div>`).join('');
+            const recent=res.recentJobs||[];
+            document.getElementById('dash-recent-jobs').innerHTML=recent.length?recent.map(j=>{const info=statusLabels[getJobStatus(j)]||statusLabels.submitted;return `<tr class="border-b border-gray-800 hover:bg-gray-800/30 cursor-pointer" onclick="viewJob('${esc(j.jobId)}')"><td class="p-3 text-xs text-gray-500 font-mono">${esc(j.jobId||'-')}</td><td class="p-3 font-medium text-white">${esc(j.namaJob||'-')}</td><td class="p-3 hidden sm:table-cell text-gray-400">${esc(j.noInvois||'-')}</td><td class="p-3 text-center text-gray-300">${Number(j.helai)||0}</td><td class="p-3 text-right font-medium text-brand-400">${canSeeRevenue?fmtMoney(Number(j.jumlah)||0):'—'}</td><td class="p-3 text-center"><span class="text-xs px-2 py-1 rounded-full border ${info.color}">${esc(info.label)}</span></td></tr>`;}).join(''):'<tr><td colspan="6" class="p-8 text-center text-gray-600">No jobs yet.</td></tr>';
+            if(currentUser?.role==='admin')loadReviewJobs();
+        }catch(e){showMessage('Dashboard error: '+e.message,true);}
     }
 
     async function viewJob(jobId) { await loadJobData(jobId); }
@@ -2031,44 +2125,21 @@
     // JOBS LIST
     // ==========================================
     async function loadJobsFromSheet() {
-        const res = await apiCall('getJobs');
-        if (!res.ok) { showMessage('Failed to load jobs', true); return; }
-        savedJobs = res.jobs || [];
-        const tbody = document.getElementById('jobs-list-tbody');
-        const isAdmin = currentUser && currentUser.role==='admin';
-        tbody.innerHTML = savedJobs.length === 0
-            ? '<tr><td colspan="8" class="p-8 text-center text-gray-600">No jobs found.</td></tr>'
-            : savedJobs.map(j => {
-                const st = getJobStatus(j);
-                const info = statusLabels[st] || statusLabels['submitted'];
-                return `
-                <tr class="border-b border-gray-800 hover:bg-gray-800/30">
-                    <td class="p-4 text-xs font-mono text-gray-500">${esc(j.jobId)}</td>
-                    <td class="p-4 font-medium text-white">${esc(j.namaJob)}</td>
-                    <td class="p-4 text-gray-400">${j.noInvois||'-'}</td>
-                    <td class="p-4 text-center text-gray-300">${j.helai||0}</td>
-                    <td class="p-4 text-right font-medium text-brand-400">${(j.jumlah||0).toFixed(2)}</td>
-                    <td class="p-4 text-center"><span class="text-xs px-2 py-1 rounded-full border ${info.color}">${info.label}</span></td>
-                    <td class="p-4 text-xs text-gray-500">${(j.dicipta||'').toString().slice(0,24)}</td>
-                    <td class="p-4 text-center whitespace-nowrap">
-                        <button onclick="loadJobData('${esc(j.jobId)}')" class="text-brand-400 hover:text-brand-300 text-xs font-medium">Load</button>
-                        <button onclick="loadJobForInvoice('${esc(j.jobId)}')" class="text-green-400 hover:text-green-300 text-xs font-medium ml-1">Invoice</button>
-                        <button onclick="loadJobForStatus('${esc(j.jobId)}')" class="text-amber-400 hover:text-amber-300 text-xs font-medium ml-1">Status</button>
-                        <button onclick="openJobDetail('${esc(j.jobId)}')" class="text-cyan-400 hover:text-cyan-300 text-xs font-medium ml-1">Review</button>
-                        ${isAdmin ? `<button onclick="loadJobForCostProfit('${esc(j.jobId)}')" class="text-purple-400 hover:text-purple-300 text-xs font-medium ml-1">Cost</button><button onclick="deleteJobFromSheet('${esc(j.jobId)}')" class="text-red-400 hover:text-red-300 text-xs font-medium ml-1">Delete</button>` : ''}
-                    </td>
-                </tr>`;
-            }).join('');
-        populateReportJobSelect('ordersheet-job-select');
-        populateReportJobSelect('invoice-job-select');
-        populateReportJobSelect('modal-job-select');
-        populateReportJobSelect('modal-job-select2');
+        const tbody=document.getElementById('jobs-list-tbody');tbody.innerHTML='<tr><td colspan="8" class="p-8 text-center text-gray-500">Loading jobs...</td></tr>';
+        const search=document.getElementById('jobs-search')?.value||'', status=document.getElementById('jobs-status-filter')?.value||'all', sort=document.getElementById('jobs-sort')?.value||'newest';
+        const res=await apiCall('getJobs',{page:jobsPage,pageSize:jobsPageSize,search,status,sort});
+        if(!res||!res.ok){tbody.innerHTML='<tr><td colspan="8" class="p-8 text-center text-red-400">Failed to load jobs.</td></tr>';return;}
+        savedJobs=res.jobs||[]; const pg=res.pagination||{page:1,totalPages:1,total:savedJobs.length}; jobsPage=pg.page;jobsTotalPages=pg.totalPages;jobsTotal=pg.total;
+        const isAdmin=currentUser?.role==='admin', canSeeRevenue=isAdmin||currentUser?.role==='agen';
+        tbody.innerHTML=savedJobs.length?savedJobs.map(j=>{const info=statusLabels[getJobStatus(j)]||statusLabels.submitted;return `<tr class="border-b border-gray-800 hover:bg-gray-800/30"><td class="p-4 text-xs font-mono text-gray-500">${esc(j.jobId)}</td><td class="p-4 font-medium text-white">${esc(j.namaJob)}</td><td class="p-4 text-gray-400">${esc(j.noInvois||'-')}</td><td class="p-4 text-center text-gray-300">${Number(j.helai)||0}</td><td class="p-4 text-right font-medium text-brand-400">${canSeeRevenue?fmtMoney(Number(j.jumlah)||0):'—'}</td><td class="p-4 text-center"><span class="text-xs px-2 py-1 rounded-full border ${info.color}">${esc(info.label)}</span></td><td class="p-4 text-xs text-gray-500">${esc(String(j.dicipta||'').slice(0,24))}</td><td class="p-4 text-center whitespace-nowrap"><button onclick="loadJobData('${esc(j.jobId)}')" class="text-brand-400 text-xs font-medium">Load</button><button onclick="loadJobForInvoice('${esc(j.jobId)}')" class="text-green-400 text-xs font-medium ml-2">Invoice</button><button onclick="loadJobForStatus('${esc(j.jobId)}')" class="text-amber-400 text-xs font-medium ml-2">Status</button><button onclick="openJobDetail('${esc(j.jobId)}')" class="text-cyan-400 text-xs font-medium ml-2">${isAdmin?'Review':'Details'}</button>${isAdmin?`<button onclick="loadJobForCostProfit('${esc(j.jobId)}')" class="text-purple-400 text-xs font-medium ml-2">Cost</button><button onclick="deleteJobFromSheet('${esc(j.jobId)}')" class="text-red-400 text-xs font-medium ml-2">Delete</button>`:''}</td></tr>`;}).join(''):'<tr><td colspan="8" class="p-8 text-center text-gray-600">No jobs found.</td></tr>';
+        updateJobsPagination();
+        if(!reportJobs.length) await ensureReportJobOptions();
+        ['ordersheet-job-select','invoice-job-select','modal-job-select','modal-job-select2'].forEach(populateReportJobSelect);
     }
 
     async function loadJobsForModalSelect() {
         if (!savedJobs.length) {
-            const res = await apiCall('getJobs');
-            if (res.ok) savedJobs = res.jobs || [];
+            await ensureReportJobOptions();
         }
         populateReportJobSelect('modal-job-select');
         populateReportJobSelect('modal-job-select2');
@@ -2097,7 +2168,7 @@
     let reviewFilterStatus = 'all';
 
     async function loadReviewJobs() {
-        const res = await apiCall('getJobs');
+        const res = await apiCall('getJobs',{page:1,pageSize:100});
         if (!res.ok) { showMessage('Failed to load jobs', true); return; }
         reviewJobs = res.jobs || [];
         renderReviewFilters();
@@ -2384,160 +2455,88 @@
         currentReviewJob = null;
     }
 
-    // Workflow action functions
+    // Workflow actions with proper API result handling and double-click protection
+    let workflowActionBusy = false;
+    async function runWorkflowAction(action, params, successMessage, options={}) {
+        if (workflowActionBusy) return false;
+        workflowActionBusy = true;
+        setGlobalLoading(true, options.loading || 'Updating job...');
+        try {
+            const res = await apiCall(action, params);
+            if (!res?.ok) {
+                showMessage(res?.error || 'Action failed. No changes were made.', true);
+                return false;
+            }
+            if (successMessage) showMessage(successMessage, !!options.errorStyle);
+            if (options.refresh !== false) await loadReviewJobs();
+            if (options.close !== false) closeJobDetailModal();
+            return true;
+        } finally {
+            workflowActionBusy = false;
+            setGlobalLoading(false);
+        }
+    }
+
     async function startReview(jobId) {
-        await apiCall('updateJobStatus', { jobId, status: 'reviewing' });
-        showMessage('Job is now under review.');
-        loadReviewJobs();
-        closeJobDetailModal();
+        return runWorkflowAction('updateJobStatus',{jobId,status:'reviewing'},'Job is now under review.');
+    }
+
+    function collectQuotePrices() {
+        return Array.from(document.querySelectorAll('#modal-orders-tbody input')).map(inp=>({bil:parseInt(inp.dataset.bil,10),price:parseFloat(inp.value)||0}));
     }
 
     async function quoteJob(jobId) {
-        // Collect quoted prices
-        const quotes = [];
-        document.querySelectorAll('#modal-orders-tbody input').forEach(inp => {
-            quotes.push({ bil: parseInt(inp.dataset.bil), price: parseFloat(inp.value) || 0 });
-        });
-        await apiCall('saveQuote', { jobId, quotes });
-        showMessage('Quotation sent! Customer will be notified.');
-        loadReviewJobs();
-        closeJobDetailModal();
+        const quotes=collectQuotePrices();
+        if(!quotes.length || quotes.some(q=>!q.bil || q.price<=0)){showMessage('Every item must have a valid price above 0.',true);return false;}
+        return runWorkflowAction('saveQuote',{jobId,quotes},'Quotation sent! Customer will be notified.',{loading:'Saving quotation...'});
     }
 
     async function reviseQuote(jobId) {
-        // Admin ubah harga quote sedia ada — status jadi revised-quote
-        const quotes = [];
-        document.querySelectorAll('#modal-orders-tbody input').forEach(inp => {
-            quotes.push({ bil: parseInt(inp.dataset.bil), price: parseFloat(inp.value) || 0 });
-        });
-        await apiCall('saveQuote', { jobId, quotes });
-        await apiCall('updateJobStatus', { jobId, status: 'revised-quote', reason: 'Quote revised by admin' });
-        showMessage('Quote REVISED! Customer/agen akan dimaklumkan.');
-        loadReviewJobs();
-        closeJobDetailModal();
+        const quotes=collectQuotePrices();
+        if(!quotes.length || quotes.some(q=>!q.bil || q.price<=0)){showMessage('Every item must have a valid price above 0.',true);return false;}
+        if(workflowActionBusy)return false;
+        workflowActionBusy=true;setGlobalLoading(true,'Revising quotation...');
+        try{
+            const saved=await apiCall('saveQuote',{jobId,quotes});
+            if(!saved?.ok){showMessage(saved?.error||'Unable to save revised prices.',true);return false;}
+            const statusRes=await apiCall('updateJobStatus',{jobId,status:'revised-quote',reason:'Quote revised by admin'});
+            if(!statusRes?.ok){showMessage(statusRes?.error||'Prices saved, but status update failed. Refresh and retry.',true);return false;}
+            showMessage('Quote REVISED! Customer/agen will be notified.');await loadReviewJobs();closeJobDetailModal();return true;
+        }finally{workflowActionBusy=false;setGlobalLoading(false);}
     }
 
-    async function acceptCounter(jobId) {
-        // Admin terima counter-offer dari customer
-        await apiCall('updateJobStatus', { jobId, status: 'confirmed', reason: 'Counter-offer accepted' });
-        showMessage('Counter-offer diterima! Job confirmed.');
-        loadReviewJobs();
-        closeJobDetailModal();
-    }
+    async function acceptCounter(jobId) { return runWorkflowAction('updateJobStatus',{jobId,status:'confirmed',reason:'Counter-offer accepted'},'Counter-offer accepted! Job confirmed.'); }
 
     // ==========================================
     // QUOTE REPLY (agen/customer response to quote)
     // ==========================================
     function showQuoteReplyBox(job) {
-        const box = document.getElementById('quote-reply-box');
-        const info = document.getElementById('quote-reply-info');
-        const isAdmin = currentUser && currentUser.role === 'admin';
-        const status = getJobStatus(job);
-
-        if (isAdmin) {
-            box.classList.add('hidden');
-            return;
-        }
-        if (status === 'quoted' || status === 'revised-quote') {
-            box.classList.remove('hidden');
-            info.textContent = 'Admin telah hantar quote untuk job ini. Sila semak harga dan jawab: Accept, Reject, atau Counter Offer.';
-        } else {
-            box.classList.add('hidden');
-        }
+        const box=document.getElementById('quote-reply-box'),info=document.getElementById('quote-reply-info');
+        const isAdmin=currentUser&&currentUser.role==='admin',status=getJobStatus(job);
+        if(isAdmin){box.classList.add('hidden');return;}
+        if(status==='quoted'||status==='revised-quote'){box.classList.remove('hidden');info.textContent='Admin has sent a quotation. Review the prices, then Accept, Reject, or send a Counter Offer.';}
+        else box.classList.add('hidden');
     }
 
     function replyQuote(action) {
-        const acceptBtn = event.target.closest('button');
         document.getElementById('counter-offer-box').classList.add('hidden');
         document.getElementById('quote-reject-box').classList.add('hidden');
-        if (action === 'accept') {
-            submitAcceptQuote();
-        } else if (action === 'reject') {
-            document.getElementById('quote-reject-box').classList.remove('hidden');
-        } else if (action === 'counter') {
-            document.getElementById('counter-offer-box').classList.remove('hidden');
-        }
+        if(action==='accept')submitAcceptQuote();
+        else if(action==='reject')document.getElementById('quote-reject-box').classList.remove('hidden');
+        else if(action==='counter')document.getElementById('counter-offer-box').classList.remove('hidden');
     }
 
-    async function submitAcceptQuote() {
-        if (!currentReviewJob) return;
-        const jobId = currentReviewJob.job.jobId;
-        await apiCall('quoteReply', { jobId, replyType: 'accept' });
-        showMessage('Quote diterima! Job akan diproses.');
-        loadReviewJobs();
-        closeJobDetailModal();
-    }
+    async function submitAcceptQuote(){if(!currentReviewJob)return;const jobId=currentReviewJob.job.jobId;return runWorkflowAction('quoteReply',{jobId,replyType:'accept'},'Quotation accepted! The job will be processed.');}
+    async function submitRejectQuote(){if(!currentReviewJob)return;const jobId=currentReviewJob.job.jobId,reason=document.getElementById('quote-reject-reason')?.value.trim()||'Rejected by customer';return runWorkflowAction('quoteReply',{jobId,replyType:'reject',reason},'Quotation rejected. Admin has been notified.',{errorStyle:true});}
+    async function submitCounterOffer(){if(!currentReviewJob)return;const jobId=currentReviewJob.job.jobId,amount=toBaseRM(parseFloat(document.getElementById('counter-offer-amount')?.value)||0);if(amount<=0){showMessage('Enter a valid counter-offer amount.',true);return false;}return runWorkflowAction('quoteReply',{jobId,replyType:'counter',counterAmount:amount},'Counter offer sent: '+fmtMoney(amount)+'.');}
 
-    async function submitRejectQuote() {
-        if (!currentReviewJob) return;
-        const jobId = currentReviewJob.job.jobId;
-        const reason = document.getElementById('quote-reject-reason')?.value || 'Rejected by customer';
-        await apiCall('quoteReply', { jobId, replyType: 'reject', reason });
-        showMessage('Quote ditolak. Admin akan dimaklumkan.', true);
-        loadReviewJobs();
-        closeJobDetailModal();
-    }
-
-    async function submitCounterOffer() {
-        if (!currentReviewJob) return;
-        const jobId = currentReviewJob.job.jobId;
-        const amount = parseFloat(document.getElementById('counter-offer-amount')?.value) || 0;
-        if (amount <= 0) { showMessage('Masukkan jumlah yang sah', true); return; }
-        await apiCall('quoteReply', { jobId, replyType: 'counter', counterAmount: amount });
-        showMessage('Counter offer dihantar: ' + fmtMoney(amount) + '. Admin akan semak.');
-        loadReviewJobs();
-        closeJobDetailModal();
-    }
-
-    async function confirmJob(jobId) {
-        await apiCall('updateJobStatus', { jobId, status: 'confirmed' });
-        showMessage('Job confirmed! Ready for production.');
-        loadReviewJobs();
-        closeJobDetailModal();
-    }
-
-    async function startProduction(jobId) {
-        await apiCall('updateJobStatus', { jobId, status: 'production' });
-        showMessage('Job moved to production.');
-        loadReviewJobs();
-        closeJobDetailModal();
-    }
-
-    async function markReady(jobId) {
-        await apiCall('updateJobStatus', { jobId, status: 'ready' });
-        showMessage('Job marked as ready for delivery.');
-        loadReviewJobs();
-        closeJobDetailModal();
-    }
-
-    async function markDelivered(jobId) {
-        await apiCall('updateJobStatus', { jobId, status: 'delivered' });
-        showMessage('Job marked as delivered.');
-        loadReviewJobs();
-        closeJobDetailModal();
-    }
-
-    async function completeJob(jobId) {
-        await apiCall('updateJobStatus', { jobId, status: 'completed' });
-        showMessage('Job completed! Revenue recorded.');
-        loadReviewJobs();
-        closeJobDetailModal();
-    }
-
-    async function rejectJob(jobId) {
-        const reason = document.getElementById('reject-reason')?.value || 'No reason provided';
-        await apiCall('updateJobStatus', { jobId, status: 'rejected', reason });
-        showMessage('Job rejected: ' + reason, true);
-        loadReviewJobs();
-        closeJobDetailModal();
-    }
-
-    async function reopenJob(jobId) {
-        await apiCall('updateJobStatus', { jobId, status: 'reviewing' });
-        showMessage('Job reopened for review.');
-        loadReviewJobs();
-        closeJobDetailModal();
-    }
+    async function confirmJob(jobId){return runWorkflowAction('updateJobStatus',{jobId,status:'confirmed'},'Job confirmed! Ready for production.');}
+    async function startProduction(jobId){return runWorkflowAction('updateJobStatus',{jobId,status:'production'},'Job moved to production.');}
+    async function markReady(jobId){return runWorkflowAction('updateJobStatus',{jobId,status:'ready'},'Job marked as ready for delivery.');}
+    async function markDelivered(jobId){return runWorkflowAction('updateJobStatus',{jobId,status:'delivered'},'Job marked as delivered.');}
+    async function completeJob(jobId){return runWorkflowAction('updateJobStatus',{jobId,status:'completed'},'Job completed! Revenue recorded.');}
+    async function rejectJob(jobId){const reason=document.getElementById('reject-reason')?.value.trim()||'No reason provided';return runWorkflowAction('updateJobStatus',{jobId,status:'rejected',reason},'Job rejected: '+reason,{errorStyle:true});}
+    async function reopenJob(jobId){return runWorkflowAction('updateJobStatus',{jobId,status:'reviewing'},'Job reopened for review.');}
 
     function generateInvoiceFromModal() {
         if (!currentReviewJob) return;
@@ -2555,32 +2554,20 @@
         });
     }
 
-    async function loadJobData(jobId, switchToInput = true) {
-        const res = await apiCall('getJob', { jobId });
-        if (!res.ok) { showMessage('Load failed', true); return; }
-        const job = res.job;
-        currentJobId = jobId; // track loaded job
-        loadedJob = job; // save full job object for payment display
-        document.getElementById('global-job-name').value = job.namaJob || '';
-        document.getElementById('global-invoice-no').value = job.noInvois || '';
-        orders = (res.orders||[]).map((o,i) => ({ id:orderIdCounter++, bil:o.bil||(i+1), name:(o.nama||'').toUpperCase(), collar:o.kolar, sleeve:o.lengan, size:o.saiz, remarks:o.remarks||'-', price:parseFloat(o.hargaUnit)||0, status:o.status||'pending' }));
-        jobCostMap = {}; // reset editable costs when switching jobs
-        updateRawTable();
-        updateLoadedJobUI(job.namaJob || jobId);
-        if (switchToInput) switchTab('input');
-        showMessage('Job loaded: ' + job.namaJob);
+    async function loadJobData(jobId,switchToInput=true) {
+        const res=await apiCall('getJob',{jobId});if(!res||!res.ok){showMessage('Load failed: '+(res?.error||''),true);return;}
+        const job=res.job;currentJobId=jobId;loadedJob=job;
+        document.getElementById('global-job-name').value=job.namaJob||'';document.getElementById('global-invoice-no').value=job.noInvois||'';
+        if(job.currency){if(job.fxRate)currencyRates[job.currency]=Number(job.fxRate)||currencyRates[job.currency]||1;currentCurrency=job.currency;document.getElementById('currency-selector').value=currentCurrency;updateCurrencyLabels();}
+        orderIdCounter=1;orders=(res.orders||[]).map((o,i)=>({id:orderIdCounter++,bil:o.bil||(i+1),name:(o.nama||'').toUpperCase(),collar:o.kolar,sleeve:o.lengan,size:o.saiz,remarks:o.remarks||'-',price:Number(o.hargaUnit)||0,basePrice:Number(o.basePrice)||Number(o.hargaUnit)||0,status:o.status||'pending'}));
+        editingOrderId=null;jobCostMap={};hasUnsavedChanges=false;updateRawTable();updateLoadedJobUI(job.namaJob||jobId);await Promise.allSettled([loadPaymentHistory(),loadJobFiles()]);
+        if(switchToInput)switchTab('input');showMessage('Job loaded: '+job.namaJob);
     }
 
     function startNewJob() {
-        currentJobId = null;
-        loadedJob = null;
-        orders = []; orderIdCounter = 1;
-        document.getElementById('global-job-name').value = '';
-        document.getElementById('global-invoice-no').value = '';
-        jobCostMap = {};
-        updateRawTable();
-        updateLoadedJobUI(null);
-        showMessage('New job started.');
+        if(hasUnsavedChanges&&!confirm('Discard unsaved changes and start a new job?'))return;
+        currentJobId=null;loadedJob=null;orders=[];orderIdCounter=1;editingOrderId=null;hasUnsavedChanges=false;
+        document.getElementById('global-job-name').value='';document.getElementById('global-invoice-no').value='';jobCostMap={};updateRawTable();updateLoadedJobUI(null);document.getElementById('job-files-list').innerHTML='<p class="text-sm text-gray-600">No job loaded.</p>';showMessage('New job started.');
     }
 
     function updateLoadedJobUI(jobName) {
@@ -2599,6 +2586,7 @@
             if (newBtn) newBtn.classList.add('hidden');
             if (saveLabel) saveLabel.textContent = 'Submit Job';
         }
+        applyJobEditingState();
     }
 
     async function deleteJobFromSheet(jobId) {
@@ -2655,41 +2643,17 @@
     // GENERATE INVOICE (with branding support)
     // ==========================================
     function generateInvoice() {
-        const sorted = getSortedOrders();
-        const tbody = document.getElementById('invoice-tbody');
-        tbody.innerHTML = '';
-        // Apply branding to invoice template
-        updateInvoiceBranding();
-        if(!sorted.length) { tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-gray-500">No data.</td></tr>'; document.getElementById('inv-grand-total').textContent=fmtMoney(0); return; }
-        const groups = {};
-        sorted.forEach(o => {
-            const key = o.collar + ' - ' + o.sleeve;
-            if(!groups[key]) groups[key] = { name:key, quantity:0, sizes:{}, total:0 };
-            groups[key].quantity++;
-            // Invoice shows only the AGREED sale price per item (no cost, no branding markup)
-            const unitPrice = (o.customPrice && !isNaN(o.customPrice)) ? o.customPrice : (parseFloat(o.price) || 0);
-            if(!groups[key].sizes[o.size]) groups[key].sizes[o.size] = { qty:0, unitPrice:unitPrice };
-            groups[key].sizes[o.size].qty++;
-            groups[key].total += unitPrice;
-        });
-        let grand = 0;
-        Object.entries(groups).forEach(([key,item]) => {
-            grand += item.total;
-            const sizeDesc = Object.entries(item.sizes).map(([s,info]) => s+'('+info.qty+') x '+fmtMoney(info.unitPrice)).join(', ');
-            const prices = Object.values(item.sizes).map(i=>i.unitPrice);
-            const minP = Math.min(...prices), maxP = Math.max(...prices);
-            const unitDisplay = minP===maxP ? fmtMoney(minP) : fmtMoney(minP)+' - '+fmtMoney(maxP);
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td class="p-4"><div class="font-bold text-gray-800">${item.name}</div><div class="text-xs text-gray-500 mt-1">Sizes: ${sizeDesc}</div></td>
-                <td class="p-4 text-center font-medium">${item.quantity} pcs</td>
-                <td class="p-4 text-right whitespace-nowrap">${unitDisplay}</td>
-                <td class="p-4 text-right font-medium text-gray-900 whitespace-nowrap">${fmtMoney(item.total)}</td>`;
-            tbody.appendChild(tr);
-        });
-        document.getElementById('inv-subtotal').textContent = fmtMoney(grand);
-        document.getElementById('inv-grand-total').textContent = fmtMoney(grand);
-        // Display payment fields if loaded job has them
-        updateInvoicePaymentDisplay(grand);
+        const sorted=getSortedOrders(),tbody=document.getElementById('invoice-tbody');tbody.innerHTML='';updateInvoiceBranding();
+        if(!sorted.length){tbody.innerHTML='<tr><td colspan="4" class="p-8 text-center text-gray-500">No data.</td></tr>';document.getElementById('inv-subtotal').textContent=fmtMoney(0);document.getElementById('inv-grand-total').textContent=fmtMoney(0);return;}
+        const groups={};sorted.forEach(o=>{const key=o.collar+' - '+o.sleeve;if(!groups[key])groups[key]={name:key,quantity:0,sizes:{},total:0};groups[key].quantity++;const unitPrice=(o.customPrice&&!isNaN(o.customPrice))?Number(o.customPrice):(Number(o.price)||0);if(!groups[key].sizes[o.size])groups[key].sizes[o.size]={qty:0,unitPrice};groups[key].sizes[o.size].qty++;groups[key].total+=unitPrice;});
+        let subtotal=0;Object.values(groups).forEach(item=>{subtotal+=item.total;const sizeDesc=Object.entries(item.sizes).map(([size,info])=>esc(size)+'('+info.qty+') x '+fmtMoney(info.unitPrice)).join(', '),prices=Object.values(item.sizes).map(i=>i.unitPrice),minP=Math.min(...prices),maxP=Math.max(...prices),unitDisplay=minP===maxP?fmtMoney(minP):fmtMoney(minP)+' - '+fmtMoney(maxP),tr=document.createElement('tr');tr.innerHTML=`<td class="p-4"><div class="font-bold text-gray-800">${esc(item.name)}</div><div class="text-xs text-gray-500 mt-1">Sizes: ${sizeDesc}</div></td><td class="p-4 text-center font-medium">${item.quantity} pcs</td><td class="p-4 text-right whitespace-nowrap">${unitDisplay}</td><td class="p-4 text-right font-medium text-gray-900 whitespace-nowrap">${fmtMoney(item.total)}</td>`;tbody.appendChild(tr);});
+        const job=loadedJob||(currentReviewJob?currentReviewJob.job:null),discount=Math.max(0,Number(job?.discount)||0),taxRate=Math.max(0,Number(job?.taxRate)||0),shipping=Math.max(0,Number(job?.shipping)||0),taxable=Math.max(0,subtotal-discount),taxAmount=taxable*taxRate/100,grand=taxable+taxAmount+shipping;
+        document.getElementById('inv-subtotal').textContent=fmtMoney(subtotal);
+        const dRow=document.getElementById('inv-discount-row'),tRow=document.getElementById('inv-tax-row');
+        if(discount>0){dRow.classList.remove('hidden');document.getElementById('inv-discount').textContent='- '+fmtMoney(discount);}else dRow.classList.add('hidden');
+        if(taxRate>0){tRow.classList.remove('hidden');document.getElementById('inv-tax-rate').textContent=taxRate.toFixed(2).replace(/\.00$/,'');document.getElementById('inv-tax').textContent=fmtMoney(taxAmount);}else tRow.classList.add('hidden');
+        let shippingRow=document.getElementById('inv-shipping-row');if(!shippingRow){shippingRow=document.createElement('tr');shippingRow.id='inv-shipping-row';shippingRow.className='hidden bg-purple-50';shippingRow.innerHTML='<td colspan="3" class="p-3 text-right font-medium text-purple-700">Shipping:</td><td id="inv-shipping" class="p-3 text-right font-medium text-purple-700 whitespace-nowrap"></td>';document.getElementById('inv-tax-row').after(shippingRow);}if(shipping>0){shippingRow.classList.remove('hidden');document.getElementById('inv-shipping').textContent=fmtMoney(shipping);}else shippingRow.classList.add('hidden');
+        document.getElementById('inv-grand-total').textContent=fmtMoney(grand);updateInvoicePaymentDisplay(grand);
     }
 
     function updateInvoicePaymentDisplay(grandTotal) {
@@ -2732,11 +2696,14 @@
         const payTotal = document.getElementById('pay-total');
         if (payTotal) payTotal.value = fmtMoney(grandTotal);
         const payDep = document.getElementById('pay-deposit');
-        if (payDep) payDep.value = deposit;
+        if (payDep) payDep.value = fromBaseRM(deposit).toFixed(2);
         const payPaid = document.getElementById('pay-paid');
-        if (payPaid) payPaid.value = paidAmount;
+        if (payPaid) payPaid.value = fromBaseRM(paidAmount).toFixed(2);
         const payBal = document.getElementById('pay-balance');
         if (payBal) payBal.value = fmtMoney(balance);
+        const adjDiscount=document.getElementById('inv-adjust-discount'); if(adjDiscount) adjDiscount.value=fromBaseRM(job ? (Number(job.discount)||0) : 0).toFixed(2);
+        const adjTax=document.getElementById('inv-adjust-tax'); if(adjTax) adjTax.value=job ? (Number(job.taxRate)||0) : 0;
+        const adjShipping=document.getElementById('inv-adjust-shipping'); if(adjShipping) adjShipping.value=fromBaseRM(job ? (Number(job.shipping)||0) : 0).toFixed(2);
         const payStatBadge = document.getElementById('pay-status-badge');
         if (payStatBadge) {
             payStatBadge.textContent = (payStatus || 'unpaid').toUpperCase();
@@ -2748,18 +2715,11 @@
     }
 
     async function savePayment() {
-        if (!currentJobId) { showMessage('Load a job first', true); return; }
-        const deposit = parseFloat(document.getElementById('pay-deposit').value) || 0;
-        const paidAmount = parseFloat(document.getElementById('pay-paid').value) || 0;
-        const res = await apiCall('updatePayment', { jobId: currentJobId, deposit, paidAmount });
-        if (res && res.ok) {
-            showMessage('Payment saved! Balance: ' + fmtMoney(res.balance));
-            // Reload job to refresh invoice
-            await loadJobData(currentJobId, false);
-            generateInvoice();
-        } else {
-            showMessage('Payment save failed', true);
-        }
+        if(!currentJobId){showMessage('Load a job first',true);return;}
+        const btn=document.getElementById('btn-save-payment');if(btn.disabled)return;setButtonBusy(btn,true,'Saving...');
+        const deposit=Math.max(0,toBaseRM(parseFloat(document.getElementById('pay-deposit').value)||0)),paidAmount=Math.max(0,toBaseRM(parseFloat(document.getElementById('pay-paid').value)||0));
+        const method=document.getElementById('pay-method').value,reference=document.getElementById('pay-reference').value.trim(),note=document.getElementById('pay-note').value.trim();
+        try{const res=await apiCall('updatePayment',{jobId:currentJobId,deposit,paidAmount,method,reference,note});if(res?.ok){showMessage('Payment saved. Balance: '+fmtMoney(res.balance));await loadJobData(currentJobId,false);generateInvoice();await loadPaymentHistory();}else showMessage('Payment save failed: '+(res?.error||'Unknown'),true);}finally{setButtonBusy(btn,false);}
     }
 
     // ==========================================
@@ -2973,7 +2933,7 @@
                 : `${esc(o.collar)} - ${esc(o.sleeve)}`;
 
             const statusCell = isAdmin
-                ? `<select onchange="updateOrderStatus(${o.id},this.value)" class="px-2 py-1 rounded border ${info.color} text-xs font-semibold cursor-pointer outline-none">${Object.entries(statusLabels).filter(([k]) => workflowSteps.includes(k) || k==='rejected' || k==='pending').map(([k,v])=>'<option value="'+k+'" '+(k===status?'selected':'')+'>'+v.label+'</option>').join('')}</select>`
+                ? `<select onchange="updateOrderStatus(${o.id},this.value)" class="px-2 py-1 rounded border ${info.color} text-xs font-semibold cursor-pointer outline-none">${itemStatusKeys.map(k=>[k,statusLabels[k]]).filter(([,v])=>v).map(([k,v])=>'<option value="'+k+'" '+(k===status?'selected':'')+'>'+v.label+'</option>').join('')}</select>`
                 : `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${info.color} text-xs font-semibold"><span class="h-2 w-2 rounded-full ${info.dot}"></span>${info.label}</span>`;
 
             tr.innerHTML = '<td class="p-3 border-r border-gray-200 text-center">'+(counter++)+'</td>'+
@@ -2991,39 +2951,41 @@
         const o = orders.find(x => x.id === id);
         if (!o) return;
         o[field] = field === 'name' ? value.toUpperCase() : value;
-        // Note: Changing collar/sleeve/size does NOT overwrite the agreed sale price.
-        // The agreed price (o.price) stays as-is unless explicitly edited by admin.
-        showMessage(field + ' updated');
+        // Changing collar/sleeve/size does NOT overwrite an agreed sale price.
+        markDirty();
+        showMessage(field + ' updated — save the job to persist it.');
         updateRawTable();
+        generateProgressReport();
     }
 
     async function bulkSetStatus(newStatus) {
-        if (!confirm('Set ALL ' + orders.length + ' items to "' + (statusLabels[newStatus]?.label || newStatus) + '"?')) return;
-        orders.forEach(o => { o.status = newStatus; });
-        generateProgressReport();
-        showMessage('All ' + orders.length + ' items set to ' + (statusLabels[newStatus]?.label || newStatus));
-        // Persist all to backend (admin sahaja — backend pun akan reject non-admin)
-        if (currentJobId && currentUser && currentUser.role === 'admin') {
-            for (const o of orders) {
-                if (o.bil) {
-                    try { await apiCall('updateOrderStatus', { jobId: currentJobId, bil: o.bil, status: newStatus }); } catch(e) {}
+        if(!itemStatusKeys.includes(newStatus)){showMessage('Invalid item status.',true);return;}
+        if(!confirm('Set ALL '+orders.length+' items to "'+(statusLabels[newStatus]?.label||newStatus)+'"?'))return;
+        const previous=orders.map(o=>o.status||'pending');
+        orders.forEach(o=>{o.status=newStatus;});generateProgressReport();
+        if(currentJobId&&currentUser?.role==='admin'){
+            setGlobalLoading(true,'Updating item statuses...');let failed=0;
+            try{
+                for(let i=0;i<orders.length;i++){
+                    const o=orders[i];if(!o.bil)continue;
+                    const res=await apiCall('updateOrderStatus',{jobId:currentJobId,bil:o.bil,status:newStatus});
+                    if(!res?.ok){o.status=previous[i];failed++;}
                 }
-            }
-        }
+            }finally{setGlobalLoading(false);generateProgressReport();}
+            if(failed){showMessage(failed+' item status update(s) failed and were restored.',true);return;}
+            showMessage('All item statuses updated.');
+        }else{markDirty();showMessage('Statuses changed locally — save the job to persist them.');}
     }
 
-    async function updateOrderStatus(id, newStatus) {
-        const o = orders.find(x => x.id === id);
-        if (!o) return;
-        o.status = newStatus;
-        showMessage('Status: ' + (statusLabels[newStatus]?.label || newStatus));
-        generateProgressReport();
-        // Persist to backend if this order belongs to a saved job (admin sahaja)
-        if (currentJobId && o.bil && currentUser && currentUser.role === 'admin') {
-            try {
-                await apiCall('updateOrderStatus', { jobId: currentJobId, bil: o.bil, status: newStatus });
-            } catch(e) { /* silent - UI already updated */ }
-        }
+    async function updateOrderStatus(id,newStatus) {
+        const o=orders.find(x=>x.id===id);if(!o)return;
+        if(!itemStatusKeys.includes(newStatus)){showMessage('Invalid item status.',true);generateProgressReport();return;}
+        const previous=o.status||'pending';o.status=newStatus;generateProgressReport();
+        if(currentJobId&&o.bil&&currentUser?.role==='admin'){
+            const res=await apiCall('updateOrderStatus',{jobId:currentJobId,bil:o.bil,status:newStatus});
+            if(!res?.ok){o.status=previous;generateProgressReport();showMessage(res?.error||'Status update failed.',true);return;}
+            showMessage('Status updated: '+(statusLabels[newStatus]?.label||newStatus));
+        }else{markDirty();showMessage('Status changed locally — save the job to persist it.');}
     }
 
     // ==========================================
@@ -3085,13 +3047,20 @@
         });
         pricingConfig.surcharge_start = document.getElementById('cfg-surcharge-start').value;
         pricingConfig.surcharge_step = parseFloat(document.getElementById('cfg-surcharge-step').value)||0;
-        // Recalculate all order prices with new settings
-        orders.forEach(o => o.price = calculatePrice(o.collar, o.sleeve, o.size));
+        // Never silently overwrite prices on already-saved/quoted items.
+        orders.forEach(o => { if(!currentJobId || !o.bil) o.price = calculatePrice(o.collar,o.sleeve,o.size); });
         updateRawTable();
+        let saveResult={ok:true};
         if(!USE_OFFLINE_MODE) {
-            await apiCall('saveSettings', { pricingConfig, costConfig });
+            currencyRates.SGD = Math.max(0.0001, parseFloat(document.getElementById('fx-sgd')?.value) || currencyRates.SGD);
+            currencyRates.USD = Math.max(0.0001, parseFloat(document.getElementById('fx-usd')?.value) || currencyRates.USD);
+            businessConfig.portalUrl = document.getElementById('business-portal-url')?.value.trim() || '';
+            businessConfig.statusEmailSubject = document.getElementById('business-email-subject')?.value.trim() || 'HA.GRAPHIXX - Job {jobId} - {status}';
+            businessConfig.emailNotifications = !!document.getElementById('business-email-enabled')?.checked;
+            saveResult=await apiCall('saveSettings',{pricingConfig,costConfig,currencyRates,businessConfig});
         }
-        showMessage('Settings saved & all prices updated!');
+        if(saveResult?.ok)showMessage('Settings saved successfully.');
+        else showMessage(saveResult?.error||'Settings were not saved.',true);
     });
 
     function resetSettingsToDefault() {
@@ -3101,25 +3070,12 @@
         renderSettingsForm();
         orders.forEach(o => o.price = calculatePrice(o.collar, o.sleeve, o.size));
         updateRawTable();
-        showMessage('Reset to default.');
+        showMessage('Defaults loaded. Press Save Settings to apply them.');
     }
 
     async function loadSettingsFromBackend() {
-        try {
-            const res = await apiCall('getSettings', {});
-            if (res && res.ok && res.settings) {
-                const s = res.settings;
-                if (s.pricing_config) {
-                    const pc = typeof s.pricing_config === 'string' ? JSON.parse(s.pricing_config) : s.pricing_config;
-                    Object.assign(pricingConfig, pc);
-                }
-                if (s.cost_config) {
-                    const cc = typeof s.cost_config === 'string' ? JSON.parse(s.cost_config) : s.cost_config;
-                    Object.assign(costConfig, cc);
-                }
-                renderSettingsForm();
-            }
-        } catch(e) { /* silent — use defaults */ }
+        try{const res=await apiCall('getSettings',{});if(res?.ok&&res.settings){const st=res.settings;if(st.pricing_config)Object.assign(pricingConfig,parseMaybeJSON(st.pricing_config));if(st.cost_config&&currentUser?.role==='admin')Object.assign(costConfig,parseMaybeJSON(st.cost_config));if(st.currency_rates)Object.assign(currencyRates,parseMaybeJSON(st.currency_rates));if(st.business_config)Object.assign(businessConfig,parseMaybeJSON(st.business_config));renderSettingsForm();renderReliabilitySettings();updateCurrencyLabels();}}
+        catch(e){showMessage('Using default pricing because settings could not load.',true);}
     }
 
     // ==========================================
@@ -3471,11 +3427,63 @@
             {name:'Johan',collar:'Retro collar',sleeve:'Pendek',size:'4XL',remarks:'99'},
             {name:'Aina',collar:'Round neck (RN)',sleeve:'Kid',size:'S',remarks:'5'}
         ];
-        demo.forEach(d => orders.push({ id:orderIdCounter++, name:d.name.toUpperCase(), collar:d.collar, sleeve:d.sleeve, size:d.size, remarks:d.remarks, price:effectiveItemPrice(d.collar,d.sleeve,d.size), status:'pending' }));
-        updateRawTable(); showMessage('Demo data loaded!');
+        demo.forEach(d => { const price=effectiveItemPrice(d.collar,d.sleeve,d.size); orders.push({id:orderIdCounter++,bil:0,name:d.name.toUpperCase(),collar:d.collar,sleeve:d.sleeve,size:d.size,remarks:d.remarks,price,basePrice:price,customPrice:null,status:'pending'}); });
+        markDirty(); updateRawTable(); showMessage('Demo data loaded!');
     }
 
     updateRawTable();
+    // ==========================================
+    // RELIABILITY / UX / INTERNATIONAL v1.1
+    // ==========================================
+    function parseMaybeJSON(v){if(typeof v==='object'&&v!==null)return v;try{return JSON.parse(v);}catch(e){return {};}}
+    function markDirty(){hasUnsavedChanges=true;}
+    function setButtonBusy(btn,busy,label){if(!btn)return;if(busy){btn.dataset.oldHtml=btn.innerHTML;btn.disabled=true;btn.classList.add('opacity-60','cursor-not-allowed');if(label)btn.textContent=label;}else{btn.disabled=false;btn.classList.remove('opacity-60','cursor-not-allowed');if(btn.dataset.oldHtml!==undefined){btn.innerHTML=btn.dataset.oldHtml;delete btn.dataset.oldHtml;}}}
+    function setGlobalLoading(show,text){const el=document.getElementById('global-loading');if(!el)return;document.getElementById('global-loading-text').textContent=text||'Working...';el.classList.toggle('hidden',!show);}
+    function setConnectionState(ok){const el=document.getElementById('connection-badge');if(!el)return;el.textContent=ok?'Online':'Offline';el.className='text-[10px] px-2 py-1 rounded-full '+(ok?'bg-green-900/40 text-green-400':'bg-red-900/40 text-red-400');}
+    window.addEventListener('online',()=>{setConnectionState(true);showMessage('Connection restored.');});window.addEventListener('offline',()=>{setConnectionState(false);showMessage('You are offline. Write actions are disabled.',true);});
+    window.addEventListener('beforeunload',e=>{if(hasUnsavedChanges){e.preventDefault();e.returnValue='';}});
+    ['global-job-name','global-invoice-no'].forEach(id=>document.getElementById(id)?.addEventListener('input',markDirty));
+    document.getElementById('orderForm')?.addEventListener('submit',()=>setTimeout(markDirty,0));
+
+    function debouncedJobSearch(){clearTimeout(jobsSearchTimer);jobsSearchTimer=setTimeout(()=>{jobsPage=1;loadJobsFromSheet();},350);}
+    function resetJobPageAndLoad(){jobsPage=1;loadJobsFromSheet();}
+    function changeJobsPage(delta){const next=jobsPage+delta;if(next<1||next>jobsTotalPages)return;jobsPage=next;loadJobsFromSheet();}
+    function updateJobsPagination(){document.getElementById('jobs-page-info').textContent=jobsTotal+' jobs';document.getElementById('jobs-page-number').textContent='Page '+jobsPage+' of '+jobsTotalPages;document.getElementById('jobs-prev').disabled=jobsPage<=1;document.getElementById('jobs-next').disabled=jobsPage>=jobsTotalPages;}
+    function csvEscape(v){let x=String(v??'');if(/^[=+@-]/.test(x))x="'"+x;return /[",\n]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x;}
+    function downloadText(name,text,type='text/plain'){const blob=new Blob([text],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+    async function exportJobsCSV(){setGlobalLoading(true,'Preparing jobs export...');try{const status=document.getElementById('jobs-status-filter')?.value||'all',search=document.getElementById('jobs-search')?.value||'',sort=document.getElementById('jobs-sort')?.value||'newest';let page=1,totalPages=1,all=[];do{const res=await apiCall('getJobs',{page,pageSize:100,status,search,sort});if(!res?.ok){showMessage(res?.error||'Export failed.',true);return;}all=all.concat(res.jobs||[]);totalPages=Math.max(1,Number(res.pagination?.totalPages||res.totalPages)||1);page++;}while(page<=totalPages&&page<=100);const rows=[['Job ID','Job Name','Invoice','Status','Pieces','Total RM','Created','Owner']].concat(all.map(j=>[j.jobId,j.namaJob,j.noInvois,j.status,j.helai,j.jumlah,j.dicipta,j.diciptaOleh]));downloadText('ha_graphixx_jobs_'+Date.now()+'.csv',rows.map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv');showMessage(all.length+' jobs exported.');}finally{setGlobalLoading(false);}}
+
+    async function saveInvoiceAdjustments(){if(!currentJobId){showMessage('Load a job first.',true);return;}const btn=document.getElementById('btn-save-adjustments');setButtonBusy(btn,true,'Saving...');const discount=toBaseRM(parseFloat(document.getElementById('inv-adjust-discount').value)||0),taxRate=parseFloat(document.getElementById('inv-adjust-tax').value)||0,shipping=toBaseRM(parseFloat(document.getElementById('inv-adjust-shipping').value)||0);try{const res=await apiCall('updateInvoiceAdjustments',{jobId:currentJobId,discount,taxRate,shipping});if(res?.ok){showMessage('Invoice totals updated.');await loadJobData(currentJobId,false);generateInvoice();}else showMessage(res?.error||'Unable to update invoice totals',true);}finally{setButtonBusy(btn,false);}}
+
+    async function loadPaymentHistory(){const box=document.getElementById('payment-history-list');if(!box||!currentJobId)return;if(currentUser?.role!=='admin'){box.innerHTML='<p class="text-gray-600">Payment history is managed by admin.</p>';return;}const res=await apiCall('getPaymentHistory',{jobId:currentJobId});if(!res?.ok)return;const h=res.history||[];box.innerHTML=h.length?h.map(x=>`<div class="bg-gray-800 border border-gray-700 rounded-lg p-3 flex justify-between gap-3"><div><div class="text-white font-medium">${esc(x.type)} · ${fmtMoney(x.amount)}</div><div class="text-xs text-gray-500">${esc(x.date)} · ${esc(x.method||'')} ${x.reference?'· '+esc(x.reference):''}</div>${x.note?`<div class="text-xs text-gray-400 mt-1">${esc(x.note)}</div>`:''}</div><span class="text-[10px] text-gray-600">${esc(x.recordedBy||'')}</span></div>`).join(''):'<p>No transactions.</p>';}
+
+    async function uploadJobFile(){if(!currentJobId){showMessage('Save or load a job first.',true);return;}const input=document.getElementById('job-file-input'),file=input.files[0];if(!file){showMessage('Choose a file first.',true);return;}if(file.size>MAX_UPLOAD_BYTES){showMessage('File exceeds 5MB limit.',true);return;}const btn=document.getElementById('btn-upload-file');setButtonBusy(btn,true,'Uploading...');try{const base64=await fileToBase64(file);const res=await apiCall('uploadFile',{jobId:currentJobId,fileType:document.getElementById('job-file-type').value,fileName:file.name,mimeType:file.type||'application/octet-stream',base64});if(res?.ok){input.value='';showMessage('File uploaded.');await loadJobFiles();}else showMessage('Upload failed: '+(res?.error||'Unknown'),true);}finally{setButtonBusy(btn,false);}}
+    function fileToBase64(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]||'');r.onerror=reject;r.readAsDataURL(file);});}
+    async function loadJobFiles(){const box=document.getElementById('job-files-list');if(!box)return;if(!currentJobId){box.innerHTML='<p class="text-sm text-gray-600">No job loaded.</p>';return;}box.innerHTML='<p class="text-sm text-gray-500">Loading files...</p>';const res=await apiCall('getFiles',{jobId:currentJobId});if(!res?.ok){box.innerHTML='<p class="text-sm text-red-400">Unable to load files.</p>';return;}const files=res.files||[];box.innerHTML=files.length?files.map(f=>`<button type="button" onclick="downloadJobFile('${esc(f.fileId)}')" class="w-full text-left block bg-gray-800 border border-gray-700 rounded-lg p-3 hover:border-brand-500"><div class="text-white text-sm font-medium truncate">${esc(f.name)}</div><div class="text-xs text-gray-500">${esc(f.type)} · ${(Number(f.size)/1024).toFixed(1)} KB · ${esc(f.uploadedAt)}</div></button>`).join(''):'<p class="text-sm text-gray-600">No files uploaded.</p>';}
+    async function downloadJobFile(fileId){if(!currentJobId||!fileId)return;setGlobalLoading(true,'Downloading file...');try{const res=await apiCall('downloadFile',{jobId:currentJobId,fileId});if(!res?.ok){showMessage(res?.error||'Download failed.',true);return;}const bytes=Uint8Array.from(atob(res.base64),c=>c.charCodeAt(0)),blob=new Blob([bytes],{type:res.mimeType||'application/octet-stream'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=res.fileName||'download';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}finally{setGlobalLoading(false);}}
+
+    function openAccountModal(){document.getElementById('account-modal').classList.remove('hidden');}
+    function closeAccountModal(){if(mustChangePassword){showMessage('Password change is required before continuing.',true);return;}document.getElementById('account-modal').classList.add('hidden');document.getElementById('account-password-form')?.reset();}
+    document.getElementById('account-password-form')?.addEventListener('submit',async e=>{e.preventDefault();const current=document.getElementById('account-current-password').value,next=document.getElementById('account-new-password').value,confirmPw=document.getElementById('account-confirm-password').value;if(next!==confirmPw){showMessage('New passwords do not match.',true);return;}const btn=document.getElementById('btn-change-password');setButtonBusy(btn,true,'Updating...');try{const res=await apiCall('changePassword',{current,next});if(res?.ok){mustChangePassword=false;showMessage('Password updated.');closeAccountModal();initializeWorkspaceAfterLogin();}else showMessage(res?.error||'Password update failed',true);}finally{setButtonBusy(btn,false);}});
+
+    function renderReliabilitySettings(){const sgd=document.getElementById('fx-sgd'),usd=document.getElementById('fx-usd');if(sgd)sgd.value=currencyRates.SGD||0.30;if(usd)usd.value=currencyRates.USD||0.22;const portal=document.getElementById('business-portal-url'),subj=document.getElementById('business-email-subject'),enabled=document.getElementById('business-email-enabled');if(portal)portal.value=businessConfig.portalUrl||'';if(subj)subj.value=businessConfig.statusEmailSubject||'HA.GRAPHIXX - Job {jobId} - {status}';if(enabled)enabled.checked=businessConfig.emailNotifications!==false;const v=document.getElementById('settings-version');if(v)v.textContent=APP_VERSION;}
+    async function downloadBusinessReport(){const type=document.getElementById('report-type').value;setGlobalLoading(true,'Preparing '+type+' report...');try{const res=await apiCall('exportReport',{reportType:type});if(!res?.ok){showMessage(res?.error||'Report failed',true);return;}const rows=[res.headers].concat(res.rows||[]);downloadText(res.fileName||('ha_graphixx_'+type+'.csv'),rows.map(r=>r.map(csvEscape).join(',')).join('\n'),'text/csv');showMessage('Report downloaded.');}finally{setGlobalLoading(false);}}
+
+    async function runHealthCheck(){setGlobalLoading(true,'Running system health check...');try{const res=await apiCall('healthCheck',{}),box=document.getElementById('health-check-result');if(!res){box.textContent='No response.';return;}box.innerHTML=`<div class="font-semibold ${res.healthy?'text-green-400':'text-red-400'}">${res.healthy?'SYSTEM HEALTHY':'ACTION REQUIRED'} · ${esc(res.appVersion||'')}</div>`+(res.checks||[]).map(c=>`<div class="mt-1 ${c.ok?'text-gray-400':'text-red-400'}">${c.ok?'✓':'✕'} ${esc(c.name)} — ${esc(c.detail)}</div>`).join('');}finally{setGlobalLoading(false);}}
+    async function createSystemBackup(){setGlobalLoading(true,'Creating backup...');try{const res=await apiCall('createBackup',{});if(res?.ok){showMessage('Backup created: '+res.name);window.open(res.url,'_blank','noopener');}else showMessage(res?.error||'Backup failed',true);}finally{setGlobalLoading(false);}}
+    async function installDailyBackup(){const res=await apiCall('installDailyBackup',{});showMessage(res?.ok?res.message:(res?.error||'Failed'),!res?.ok);}
+    async function exportSystemJSON(){setGlobalLoading(true,'Preparing export...');try{const res=await apiCall('exportData',{});if(res?.ok)downloadText('ha_graphixx_full_backup_'+Date.now()+'.json',JSON.stringify(res.data,null,2),'application/json');else showMessage(res?.error||'Export failed',true);}finally{setGlobalLoading(false);}}
+
+    const I18N={en:{dashboard:'Dashboard',newJob:'New Job',jobs:'Jobs',invoice:'Invoice',status:'Status',settings:'Settings'},ms:{dashboard:'Dashboard',newJob:'Kerja Baru',jobs:'Senarai Kerja',invoice:'Invois',status:'Status',settings:'Tetapan'}};
+    function changeLanguage(){currentLanguage=document.getElementById('language-selector').value;localStorage.setItem('ha_graphixx_language',currentLanguage);applyLanguage();}
+    function applyLanguage(){const t=I18N[currentLanguage]||I18N.en;const map={'tab-dashboard':t.dashboard,'tab-input':t.newJob,'tab-jobs':t.jobs,'tab-invoice':t.invoice,'tab-progress':t.status,'tab-settings':t.settings};Object.entries(map).forEach(([id,text])=>{const el=document.getElementById(id);if(el&&el.childNodes.length)el.childNodes[0].nodeValue=text+' ';});document.documentElement.lang=currentLanguage==='ms'?'ms':'en';}
+
+    async function ensureReportJobOptions(){const res=await apiCall('getJobOptions',{});if(res?.ok)reportJobs=res.jobs||[];return reportJobs;}
+    async function refreshReportJobOptions(){await ensureReportJobOptions();['ordersheet-job-select','invoice-job-select','modal-job-select','modal-job-select2'].forEach(populateReportJobSelect);}
+    async function adminResetUserPassword(){const targetUserId=document.getElementById('reset-user-id').value.trim(),newPassword=document.getElementById('reset-user-password').value;if(!targetUserId||!newPassword){showMessage('Enter user ID and temporary password.',true);return;}if(!confirm('Reset password for '+targetUserId+'?'))return;const res=await apiCall('adminResetPassword',{targetUserId,newPassword});showMessage(res?.ok?res.message:(res?.error||'Reset failed'),!res?.ok);if(res?.ok){document.getElementById('reset-user-id').value='';document.getElementById('reset-user-password').value='';}}
+
+    // Restore preferences and perform lightweight connectivity check.
+    currentCurrency=localStorage.getItem('ha_graphixx_currency')||currentCurrency;document.getElementById('currency-selector').value=currentCurrency;document.getElementById('language-selector').value=currentLanguage;applyLanguage();updateCurrencyLabels();setConnectionState(navigator.onLine);
     </script>
 </body>
 </html>
