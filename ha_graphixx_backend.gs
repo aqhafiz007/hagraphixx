@@ -29,21 +29,23 @@ function setupSheets() {
     usersSheet = ss.insertSheet('Users');
     usersSheet.appendRow(['User ID', 'Password', 'Role', 'Name', 'Agent Code', 'Phone', 'Email', 'Address', 'Active', 'Created At', 'Updated At']);
   }
-  // Pastikan ada user baru jika belum ada
+  // SECURITY: TIADA lagi user demo dengan password known (admin123 dll).
+  // Admin dicipta HANYA jika belum wujud sebarang admin, dengan password rawak
+  // yang dipaparkan SEKALI sahaja dalam mesej return. Simpan password itu!
   const usersData = usersSheet.getDataRange().getValues();
-  const existingIds = usersData.map(r => String(r[0]));
-  const newUsers = [
-    ['admin', hashPW('admin123'), 'admin', 'Administrator', '', '', 'admin@hagraphixx.local', '', 'TRUE', new Date(), new Date()],
-    ['agen001', hashPW('agen123'), 'agen', 'Agen Ali', 'AG001', '012-345 6789', 'agen001@hagraphixx.local', '', 'TRUE', new Date(), new Date()],
-    ['cus001', hashPW('cus123'), 'customer', 'Siti Aishah', '', '011-1115 0199', 'cus001@hagraphixx.local', 'Asrama SMKA Al-Mashoor (L), Jalan Air Itam', 'TRUE', new Date(), new Date()],
-    ['agen002', hashPW('agen123'), 'agen', 'Agen Bakar', 'AG002', '', 'agen002@hagraphixx.local', '', 'TRUE', new Date(), new Date()],
-    ['agen003', hashPW('agen123'), 'agen', 'Agen Siti Nur', 'AG003', '', 'agen003@hagraphixx.local', '', 'TRUE', new Date(), new Date()],
-    ['cus002', hashPW('cus123'), 'customer', 'Tan Wei Jie', '', '', 'cus002@hagraphixx.local', '', 'TRUE', new Date(), new Date()],
-    ['cus003', hashPW('cus123'), 'customer', 'Nurul Ain', '', '', 'cus003@hagraphixx.local', '', 'TRUE', new Date(), new Date()],
-  ];
-  newUsers.forEach(u => {
-    if (!existingIds.includes(u[0])) usersSheet.appendRow(u);
-  });
+  let hasAdmin = false;
+  for (let i = 1; i < usersData.length; i++) {
+    if (String(usersData[i][2]) === 'admin' && String(usersData[i][8]).toUpperCase() === 'TRUE') { hasAdmin = true; break; }
+  }
+  let adminMsg = 'Admin sedia ada dikekalkan.';
+  if (!hasAdmin) {
+    const randBytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, 'seed-' + Date.now() + '-' + Math.random());
+    const randomPw = randBytes.map(b => (b < 0 ? b + 256 : b).toString(16).padStart(2, '0')).join('').slice(0, 16);
+    usersSheet.appendRow(['admin', hashPW(randomPw), 'admin', 'Administrator', '', '', 'admin@hagraphixx.local', '', 'TRUE', new Date(), new Date()]);
+    adminMsg = 'ADMIN BARU DICIPTA. Password (SIMPAN SEKARANG, takkan dipapar lagi): ' + randomPw;
+  }
+  // Untuk tambah agen/customer: tambah terus dalam Users sheet dengan
+  // password hashed — guna fungsi adminCreateUser() di bawah.
   
   // Sheet: Jobs - dah ada data
   if (!ss.getSheetByName('Jobs')) {
@@ -74,7 +76,38 @@ function setupSheets() {
     settingsSheet.appendRow(['Kunci', 'Nilai', 'Dikemaskini Pada']);
   }
   
-  return 'Setup selesai! Sheets: Users, Jobs, Orders, Settings - semua dah ada data.';
+  return 'Setup selesai! Sheets: Users, Jobs, Orders, Settings. ' + adminMsg;
+}
+
+// HELPER: Cipta user baru dengan password hashed.
+// Run manual dari editor: adminCreateUser('agen001', 'PasswordKuat123', 'agen', 'Agen Ali', 'AG001')
+function adminCreateUser(userId, password, role, name, agentCode) {
+  if (!userId || !password || password.length < 8) return 'Gagal: password mesti sekurang-kurangnya 8 aksara';
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Users');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).toLowerCase() === String(userId).toLowerCase()) return 'Gagal: user ID sudah wujud';
+  }
+  sheet.appendRow([userId, hashPW(password), role || 'customer', name || userId, agentCode || '', '', '', '', 'TRUE', new Date(), new Date()]);
+  return 'User dicipta: ' + userId + ' (' + (role || 'customer') + ')';
+}
+
+// HELPER: Disable semua demo user lama (admin123/agen123/cus123) yang mungkin
+// masih ada dalam sheet dari setup versi lama. Run SEKALI dari editor sebelum live.
+function disableDemoUsers() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Users');
+  const data = sheet.getDataRange().getValues();
+  const demoPWs = [hashPW('admin123'), hashPW('agen123'), hashPW('cus123'), 'admin123', 'agen123', 'cus123'];
+  let count = 0;
+  for (let i = 1; i < data.length; i++) {
+    if (demoPWs.indexOf(String(data[i][1])) !== -1) {
+      sheet.getRange(i+1, 9).setValue('FALSE'); // Active = FALSE
+      count++;
+    }
+  }
+  return count + ' demo user di-disable. Cipta user sebenar guna adminCreateUser().';
 }
 
 // ==========================================
@@ -108,7 +141,7 @@ function handleRequest(e) {
   
   // Endpoints that DON'T require auth
   const publicEndpoints = ['ping', 'login', 'portalLogin'];
-  const adminOnlyEndpoints = ['deleteJob', 'updateJobStatus', 'saveQuote', 'saveSettings', 'updatePayment', 'getAuditLog'];
+  const adminOnlyEndpoints = ['deleteJob', 'updateJobStatus', 'updateOrderStatus', 'saveQuote', 'saveSettings', 'updatePayment', 'getAuditLog'];
   
   // Check auth for non-public endpoints
   if (publicEndpoints.indexOf(action) === -1) {
@@ -139,27 +172,9 @@ function handleRequest(e) {
       }
     }
     
-    // Fallback: legacy portal token (portal-USERID-TIMESTAMP)
-    if (!sessionUser && token.startsWith('portal-')) {
-      const parts = token.split('-');
-      const tokenUserId = parts.length >= 3 ? parts.slice(1, -1).join('-') : '';
-      if (tokenUserId) {
-        const usersSheet = ss.getSheetByName('Users');
-        if (usersSheet) {
-          const uData = usersSheet.getDataRange().getValues();
-          for (let i = 1; i < uData.length; i++) {
-            if (String(uData[i][0]).toLowerCase() === tokenUserId.toLowerCase()) {
-              const role = String(uData[i][2] || '');
-              const active = String(uData[i][8]).toUpperCase() === 'TRUE';
-              if (active && (role === 'customer' || role === 'agen')) {
-                sessionUser = { id: String(uData[i][0]), role: role, name: String(uData[i][3] || '') };
-              }
-              break;
-            }
-          }
-        }
-      }
-    }
+    // NOTE: Legacy portal token (portal-USERID-TIMESTAMP) TELAH DIBUANG.
+    // Semua token mesti datang dari Sessions sheet (secure random, 7-day expiry).
+    // User portal lama yang masih pegang token legacy akan dipaksa login semula.
     
     if (!sessionUser) {
       return jsonOut({ ok: false, error: 'Invalid or expired session' });
@@ -553,7 +568,7 @@ function apiSaveJob(params) {
       jobId,
       jobData.namaJob || 'Untitled',
       jobData.noInvois || ('INV-' + new Date().getFullYear() + String(new Date().getMonth()+1).padStart(2,'0') + String(new Date().getDate()).padStart(2,'0')),
-      jobData.status || 'Aktif',
+      userRole === 'admin' ? (jobData.status || 'submitted') : 'submitted', // non-admin sentiasa mula 'submitted'
       totalHelai,
       totalRM,
       config,
@@ -594,7 +609,8 @@ function apiSaveJob(params) {
         jobsSheet.getRange(i+1, 2, 1, 9).setValues([[
           jobData.namaJob || jobsData[i][1],
           jobData.noInvois || jobsData[i][2],
-          jobData.status || jobsData[i][3],
+          jobsData[i][3],   // Status - KEKAL. saveJob tak boleh ubah status;
+                            // guna updateJobStatus (admin-only) untuk tukar status
           totalHelai,
           totalRM,
           config,

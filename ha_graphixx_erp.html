@@ -1142,11 +1142,28 @@
     }
     function changeCurrency() {
         currentCurrency = document.getElementById('currency-selector').value;
+        updateCurrencyLabels();
         updateRawTable();
         if (typeof generateInvoice === 'function' && currentPage === 'invoice') generateInvoice();
         if (typeof generateModalReport === 'function' && currentPage === 'modal') generateModalReport();
         showMessage('Currency changed to ' + currentCurrency);
     }
+
+    // Tukar semua label statik "(RM)" dalam UI kepada simbol currency semasa.
+    // Elemen ditanda sekali dengan data-cur-template, kemudian di-update setiap tukaran.
+    function updateCurrencyLabels() {
+        const sym = currencySymbols[currentCurrency] || currentCurrency;
+        document.querySelectorAll('th, label, h4, td, span, option, button').forEach(el => {
+            if (el.children.length > 0) return; // hanya elemen text tulen
+            if (!el.dataset.curTemplate) {
+                if (el.textContent.indexOf('(RM)') === -1) return;
+                el.dataset.curTemplate = el.textContent;
+            }
+            el.textContent = el.dataset.curTemplate.split('(RM)').join('(' + sym + ')');
+        });
+    }
+    // Simbol semasa untuk mesej prompt() dll.
+    function curSym() { return currencySymbols[currentCurrency] || currentCurrency; }
 
     // Branding config for agen/customer (invoice maker)
     let brandingConfig = {
@@ -1294,13 +1311,15 @@
                 showMessage('Server unreachable. Please try again later.', true);
                 return { ok: false, error: 'Server unreachable' };
             }
-            // Untuk action lain, cuba offline fallback hanya jika dah ada session
-            if (sessionToken) {
-                showMessage('API offline — using cached data', true);
+            // API down: HANYA bacaan (read) dibenarkan guna cache local.
+            // Tindakan TULIS diblok terus — elak data "tersimpan" di browser sahaja.
+            const READ_ONLY_ACTIONS = ['getDashboard', 'getJobs', 'getJob', 'getSettings', 'getPaymentHistory', 'getAuditLog'];
+            if (sessionToken && READ_ONLY_ACTIONS.includes(action)) {
+                showMessage('API offline — showing cached data (read-only)', true);
                 return offlineFallback(action, params);
             }
-            showMessage('API offline — please login again', true);
-            return { ok: false, error: 'Server unreachable' };
+            showMessage('SERVER OFFLINE — perubahan TIDAK disimpan. Sila cuba semula bila talian pulih.', true);
+            return { ok: false, error: 'Server offline — changes NOT saved' };
         }
     }
 
@@ -1479,6 +1498,7 @@
 
     function applyRoleAccess() {
         if (!currentUser) return;
+        updateCurrencyLabels(); // pastikan label currency betul bila app dipapar
         const isAdmin = currentUser.role === 'admin';
         document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hidden', !isAdmin));
         document.querySelectorAll('.non-admin').forEach(el => el.classList.toggle('hidden', isAdmin));
@@ -1899,8 +1919,12 @@
         if (orders.length === 0) { showMessage('Add items first!', true); return; }
         const namaJob = document.getElementById('global-job-name').value || 'Untitled';
         const noInvois = document.getElementById('global-invoice-no').value || '';
-        const job = { namaJob, noInvois, status:'submitted', config: JSON.stringify(pricingConfig) };
-        if (currentJobId) job.jobId = currentJobId; // update existing job instead of creating a new one
+        const job = { namaJob, noInvois, config: JSON.stringify(pricingConfig) };
+        if (currentJobId) {
+            job.jobId = currentJobId; // update existing job — status TIDAK dihantar (kekal di backend)
+        } else {
+            job.status = 'submitted'; // job baru sahaja mula sebagai submitted
+        }
         const orderData = orders.map((o,i) => ({ bil:o.bil||(i+1), lengan:o.sleeve, saiz:o.size, nama:o.name, kolar:o.collar, remarks:o.remarks, hargaUnit:o.price, basePrice:o.basePrice||o.price, customPrice:o.customPrice||null, status:o.status||'pending' }));
         showMessage('Saving to database...');
         const res = await apiCall('saveJob', { job, orders:orderData, userId:currentUser?.id||'', userRole:currentUser?.role||'' });
@@ -2255,7 +2279,7 @@
 
     // BULK PRICE TOOLS - untuk 1000 order sekali tekan
     function bulkSetPrice() {
-        const val = parseFloat(prompt('Set price for ALL items (RM):', '50'));
+        const val = parseFloat(prompt('Set price for ALL items ('+curSym()+'):', '50'));
         if (isNaN(val) || val < 0) return;
         document.querySelectorAll('#modal-orders-tbody input').forEach(inp => { inp.value = val.toFixed(2); });
         recalcQuoteTotal();
@@ -2263,7 +2287,7 @@
     }
 
     function bulkAddFixed() {
-        const val = parseFloat(prompt('Add amount to ALL items (RM):', '5'));
+        const val = parseFloat(prompt('Add amount to ALL items ('+curSym()+'):', '5'));
         if (isNaN(val)) return;
         document.querySelectorAll('#modal-orders-tbody input').forEach(inp => {
             const cur = parseFloat(inp.value) || 0;
@@ -2297,7 +2321,7 @@
     }
 
     function bulkCopyBase() {
-        const add = parseFloat(prompt('Add this amount to base price for ALL items (RM):', '5'));
+        const add = parseFloat(prompt('Add this amount to base price for ALL items ('+curSym()+'):', '5'));
         if (isNaN(add)) return;
         if (!currentReviewJob) return;
         const jobOrders = currentReviewJob.orders || [];
@@ -2737,7 +2761,7 @@
 
     function addExtraCost() {
         const name = prompt('Extra cost name (e.g. Fabric, Urgent Fee):'); if(!name||!name.trim())return;
-        const amount = parseFloat(prompt('Amount (RM):','0'))||0;
+        const amount = parseFloat(prompt('Amount ('+curSym()+'):','0'))||0;
         const mode = confirm('OK = Per unit (x quantity)\nCancel = One-time (fixed)') ? 'unit' : 'once';
         extraCosts.push({ id:++extraCostCounter, name:name.trim(), amount, mode });
         renderExtraCostsList(); generateModalReport();
@@ -2933,8 +2957,8 @@
         orders.forEach(o => { o.status = newStatus; });
         generateProgressReport();
         showMessage('All ' + orders.length + ' items set to ' + (statusLabels[newStatus]?.label || newStatus));
-        // Persist all to backend
-        if (currentJobId) {
+        // Persist all to backend (admin sahaja — backend pun akan reject non-admin)
+        if (currentJobId && currentUser && currentUser.role === 'admin') {
             for (const o of orders) {
                 if (o.bil) {
                     try { await apiCall('updateOrderStatus', { jobId: currentJobId, bil: o.bil, status: newStatus }); } catch(e) {}
@@ -2949,8 +2973,8 @@
         o.status = newStatus;
         showMessage('Status: ' + (statusLabels[newStatus]?.label || newStatus));
         generateProgressReport();
-        // Persist to backend if this order belongs to a saved job
-        if (currentJobId && o.bil) {
+        // Persist to backend if this order belongs to a saved job (admin sahaja)
+        if (currentJobId && o.bil && currentUser && currentUser.role === 'admin') {
             try {
                 await apiCall('updateOrderStatus', { jobId: currentJobId, bil: o.bil, status: newStatus });
             } catch(e) { /* silent - UI already updated */ }
@@ -2995,7 +3019,7 @@
             { key:'polo', label:'Polo' },
             { key:'retro', label:'Retro' }
         ];
-        costList.innerHTML += '<div class="col-span-full text-xs text-gray-500 uppercase font-semibold mb-1">Cost per Category (RM)</div>';
+        costList.innerHTML += '<div class="col-span-full text-xs text-gray-500 uppercase font-semibold mb-1">Cost per Category ('+curSym()+')</div>';
         costKeys.forEach(c => {
             const d = document.createElement('div'); d.className='flex items-center gap-2 bg-gray-800 rounded-lg p-2 border border-gray-700';
             d.innerHTML='<span class="text-xs text-gray-300 flex-1 truncate">'+c.label+'</span><span class="text-[10px] text-gray-500">RM</span>';
