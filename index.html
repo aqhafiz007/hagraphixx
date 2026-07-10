@@ -404,6 +404,11 @@
                         </select>
                     </div>
                     <div class="flex gap-3">
+                        <!-- Payment Control (admin only) -->
+                        <button onclick="togglePaymentPanel()" id="btn-payment-panel" class="admin-only hidden bg-green-600 hover:bg-green-500 text-white font-medium py-2 px-5 rounded-lg transition-colors flex items-center gap-2 text-sm">
+                            <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V4h6v6h2a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 10a2 2 0 000 4h6v-4H4zm10 0a2 2 0 000 4h6v-4h-6z"/></svg>
+                            Payment
+                        </button>
                         <button onclick="window.print()" class="bg-brand-600 hover:bg-brand-500 text-white font-medium py-2 px-5 rounded-lg transition-colors flex items-center gap-2 text-sm">
                             <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd" /></svg>
                             Print
@@ -453,13 +458,65 @@
                             <tbody id="invoice-tbody" class="divide-y divide-gray-100 text-gray-800"></tbody>
                             <tfoot>
                                 <tr class="bg-gray-50 border-t-2 border-gray-200">
+                                    <td colspan="3" class="p-4 text-right font-bold text-gray-700">SUBTOTAL:</td>
+                                    <td class="p-4 text-right font-bold text-gray-900 whitespace-nowrap" id="inv-subtotal">RM 0.00</td>
+                                </tr>
+                                <tr id="inv-discount-row" class="hidden bg-blue-50">
+                                    <td colspan="3" class="p-3 text-right font-medium text-blue-700">Discount:</td>
+                                    <td class="p-3 text-right font-medium text-blue-700 whitespace-nowrap" id="inv-discount">- RM 0.00</td>
+                                </tr>
+                                <tr id="inv-tax-row" class="hidden bg-amber-50">
+                                    <td colspan="3" class="p-3 text-right font-medium text-amber-700">Tax/SST (<span id="inv-tax-rate">0</span>%):</td>
+                                    <td class="p-3 text-right font-medium text-amber-700 whitespace-nowrap" id="inv-tax">RM 0.00</td>
+                                </tr>
+                                <tr class="bg-gray-100 border-t-2 border-gray-300">
                                     <td colspan="3" class="p-4 text-right font-bold text-gray-700">GRAND TOTAL:</td>
                                     <td class="p-4 text-right font-bold text-xl text-brand-600 whitespace-nowrap" id="inv-grand-total">RM 0.00</td>
+                                </tr>
+                                <tr id="inv-deposit-row" class="hidden bg-green-50">
+                                    <td colspan="3" class="p-3 text-right font-medium text-green-700">Deposit Paid:</td>
+                                    <td class="p-3 text-right font-medium text-green-700 whitespace-nowrap" id="inv-deposit">RM 0.00</td>
+                                </tr>
+                                <tr id="inv-balance-row" class="hidden bg-red-50">
+                                    <td colspan="3" class="p-3 text-right font-bold text-red-700">BALANCE DUE:</td>
+                                    <td class="p-3 text-right font-bold text-red-700 whitespace-nowrap" id="inv-balance">RM 0.00</td>
+                                </tr>
+                                <tr id="inv-paystatus-row" class="hidden">
+                                    <td colspan="4" class="p-3 text-center">
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold" id="inv-paystatus-badge">UNPAID</span>
+                                    </td>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
                     <div class="border-t-2 border-gray-100 pt-8 mt-12 text-sm text-gray-500 text-center"><p>Thank you for your business.</p></div>
+                </div>
+
+                <!-- Payment Panel (admin only) -->
+                <div id="payment-panel" class="hidden bg-gray-900 border border-gray-800 rounded-xl p-6 no-print">
+                    <h3 class="text-lg font-bold text-white mb-4">Payment Tracking</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Grand Total</label>
+                            <input type="text" id="pay-total" readonly class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Deposit (RM)</label>
+                            <input type="number" id="pay-deposit" step="0.5" min="0" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Additional Paid (RM)</label>
+                            <input type="number" id="pay-paid" step="0.5" min="0" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Balance Due</label>
+                            <input type="text" id="pay-balance" readonly class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm">
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="savePayment()" class="bg-green-600 hover:bg-green-500 text-white font-medium px-5 py-2.5 rounded-lg transition-colors text-sm">Save Payment</button>
+                        <span id="pay-status-badge" class="text-xs font-bold px-3 py-2 rounded-full bg-gray-700 text-gray-300">UNPAID</span>
+                    </div>
                 </div>
             </div>
 
@@ -1177,7 +1234,7 @@
     // API CALLER
     // ==========================================
     // Actions that write data — use POST to avoid URL length limits
-    const POST_ACTIONS = ['saveJob', 'deleteJob', 'saveQuote', 'saveSettings', 'updateJobStatus', 'updateOrderStatus', 'portalSubmitRequest', 'portalUpdateProfile', 'portalChangePassword', 'logout'];
+    const POST_ACTIONS = ['saveJob', 'deleteJob', 'saveQuote', 'saveSettings', 'updateJobStatus', 'updateOrderStatus', 'portalSubmitRequest', 'portalUpdateProfile', 'portalChangePassword', 'logout', 'updatePayment'];
 
     async function apiCall(action, params = {}) {
         if (USE_OFFLINE_MODE) return offlineFallback(action, params);
@@ -1246,12 +1303,14 @@
             case 'login':
                 const users = { admin:{password:'admin123',role:'admin',name:'Administrator'}, agen001:{password:'agen123',role:'agen',name:'Agen Ali'}, cus001:{password:'cus123',role:'customer',name:'Siti Aishah'} };
                 const u = users[(params.userId||'').toLowerCase()];
-                if (u && u.password === params.password) return { ok:true, user:{id:params.userId.toLowerCase(), role:u.role, name:u.name, agentCode:''} };
+                if (u && u.password === params.password) return { ok:true, token:'offline-'+params.userId+'-'+Date.now(), user:{id:params.userId.toLowerCase(), role:u.role, name:u.name, agentCode:''} };
                 return { ok:false, error:'Invalid credentials (offline mode)' };
+            case 'logout':
+                return { ok:true, message:'Logged out (offline)' };
             case 'getDashboard':
                 let totalH=0, totalR=0, active=0;
                 const sc={pending:0,production:0,ready:0,delivered:0};
-                data.jobs.forEach(j=>{ totalH+=j.helai||0; totalR+=j.jumlah||0; if(j.status==='Aktif')active++; });
+                data.jobs.forEach(j=>{ totalH+=j.helai||0; totalR+=j.jumlah||0; if(j.status!=='completed'&&j.status!=='delivered')active++; });
                 return { ok:true, stats:{totalJobs:data.jobs.length,totalHelai:totalH,totalRevenue:totalR,activeJobs:active,statusCounts:sc}, recentJobs:data.jobs.slice(-5).reverse() };
             case 'getJobs': return { ok:true, jobs:data.jobs };
             case 'saveJob':
@@ -1260,7 +1319,18 @@
                 const now = new Date(); const ts=now.toISOString().slice(0,10).replace(/-/g,'')+now.toTimeString().slice(0,8).replace(/:/g,'');
                 const jobId = jobData.jobId || ('JOB-'+ts+'-'+Math.random().toString(16).slice(2,8).toUpperCase());
                 let total=0; ordersData.forEach(o=>total+=parseFloat(o.hargaUnit)||0);
-                data.jobs.push({jobId, namaJob:jobData.namaJob, noInvois:jobData.noInvois||('INV-'+ts.slice(0,8)), status:'submitted', helai:ordersData.length, jumlah:total, config:jobData.config||'', dicipta:now.toLocaleString('en-GB'), dikemaskini:now.toLocaleString('en-GB'), diciptaOleh:params.userId||'', rolePencipta:params.userRole||'', orders:ordersData});
+                // Check if updating existing job
+                const existIdx = data.jobs.findIndex(j=>j.jobId===jobId);
+                if (existIdx >= 0) {
+                    data.jobs[existIdx].namaJob = jobData.namaJob;
+                    data.jobs[existIdx].noInvois = jobData.noInvois;
+                    data.jobs[existIdx].helai = ordersData.length;
+                    data.jobs[existIdx].jumlah = total;
+                    data.jobs[existIdx].dikemaskini = now.toLocaleString('en-GB');
+                    data.jobs[existIdx].orders = ordersData;
+                } else {
+                    data.jobs.push({jobId, namaJob:jobData.namaJob, noInvois:jobData.noInvois||('INV-'+ts.slice(0,8)), status:'submitted', helai:ordersData.length, jumlah:total, config:jobData.config||'', dicipta:now.toLocaleString('en-GB'), dikemaskini:now.toLocaleString('en-GB'), diciptaOleh:params.userId||'', rolePencipta:params.userRole||'', orders:ordersData});
+                }
                 localStorage.setItem(LS_KEY, JSON.stringify(data));
                 return { ok:true, jobId, totalHelai:ordersData.length, totalRM:total };
             case 'deleteJob':
@@ -1272,11 +1342,19 @@
                 if (jobToUpdate) { jobToUpdate.status = params.status; if (params.reason) jobToUpdate.rejectReason = params.reason; }
                 localStorage.setItem(LS_KEY, JSON.stringify(data));
                 return { ok:true };
+            case 'updateOrderStatus':
+                const jobForOrder = data.jobs.find(j=>j.jobId===params.jobId);
+                if (jobForOrder && jobForOrder.orders) {
+                    const ord = jobForOrder.orders.find(o=>o.bil==params.bil);
+                    if (ord) ord.status = params.status;
+                }
+                localStorage.setItem(LS_KEY, JSON.stringify(data));
+                return { ok:true };
             case 'saveQuote':
                 const jobToQuote = data.jobs.find(j=>j.jobId===params.jobId);
                 if (jobToQuote) {
                     jobToQuote.status = 'quoted';
-                    const quotes = params.quotes || [];
+                    const quotes = typeof params.quotes==='string' ? JSON.parse(params.quotes) : (params.quotes || []);
                     if (jobToQuote.orders) {
                         quotes.forEach(q => { if (jobToQuote.orders[q.bil-1]) jobToQuote.orders[q.bil-1].adminQuote = q.price; });
                     }
@@ -1293,6 +1371,14 @@
                     hargaUnit:o.hargaUnit, adminQuote:o.adminQuote, status:o.status||'pending'
                 }));
                 return { ok:true, job: jobDetail, orders: ordersList };
+            case 'getSettings':
+                return { ok:true, settings: data.settings || {} };
+            case 'saveSettings':
+                data.settings = data.settings || {};
+                if (params.pricingConfig) data.settings.pricing_config = typeof params.pricingConfig==='string'?params.pricingConfig:JSON.stringify(params.pricingConfig);
+                if (params.costConfig) data.settings.cost_config = typeof params.costConfig==='string'?params.costConfig:JSON.stringify(params.costConfig);
+                localStorage.setItem(LS_KEY, JSON.stringify(data));
+                return { ok:true, message:'Settings saved (offline)' };
             default: return { ok:false, error:'Offline mode: '+action+' not supported' };
         }
     }
@@ -1539,11 +1625,11 @@
                 document.getElementById('bd-collar').textContent = 'Base: RM' + cp.toFixed(2);
                 document.getElementById('bd-sleeve').textContent = '';
             }
-            document.getElementById('live-price').textContent = 'RM ' + total.toFixed(2);
+            document.getElementById('live-price').textContent = fmtMoney(total);
             document.getElementById('bd-surcharge').textContent = surcharge > 0 ? ' + Plus Size: RM' + surcharge.toFixed(2) : '';
             bd.classList.remove('hidden');
         } else {
-            document.getElementById('live-price').textContent = 'RM 0.00';
+            document.getElementById('live-price').textContent = fmtMoney(0);
             bd.classList.add('hidden');
         }
     }
@@ -1760,14 +1846,14 @@
         tbody.innerHTML = orders.map((o,i) => {
             // In custom mode, display price from custom table
             const displayPrice = isCustomMode ? calculateCustomPrice(o.collar, o.sleeve, o.size) : o.price;
-            const priceLabel = isCustomMode ? `<span class="text-amber-400 font-bold">RM ${displayPrice.toFixed(2)}</span><span class="text-[10px] text-gray-500 block">your price</span>` : `RM ${o.price.toFixed(2)}`;
+            const priceLabel = isCustomMode ? `<span class="text-amber-400 font-bold">${fmtMoney(displayPrice)}</span><span class="text-[10px] text-gray-500 block">your price</span>` : `${fmtMoney(o.price)}`;
             return `
             <tr class="hover:bg-gray-800/50 transition-colors">
                 <td class="p-4 border-b border-gray-800">${i+1}</td>
-                <td class="p-4 border-b border-gray-800">${o.collar} - ${o.sleeve}</td>
-                <td class="p-4 border-b border-gray-800 font-medium text-white">${o.name}</td>
-                <td class="p-4 border-b border-gray-800 font-medium text-brand-400">${o.size}</td>
-                <td class="p-4 border-b border-gray-800">${o.remarks}</td>
+                <td class="p-4 border-b border-gray-800">${esc(o.collar)} - ${esc(o.sleeve)}</td>
+                <td class="p-4 border-b border-gray-800 font-medium text-white">${esc(o.name)}</td>
+                <td class="p-4 border-b border-gray-800 font-medium text-brand-400">${esc(o.size)}</td>
+                <td class="p-4 border-b border-gray-800">${esc(o.remarks)}</td>
                 <td class="p-4 border-b border-gray-800 text-right font-medium">${priceLabel}</td>
                 <td class="p-4 border-b border-gray-800 text-center">
                     <button onclick="editOrder(${o.id})" class="text-blue-400 hover:text-blue-300 p-1" title="Edit item"><svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM2 14l8.5-8.5 2.828 2.828L4.828 16.828 2 14z"/><path fill-rule="evenodd" d="M2 14l.707.707L2 14zm0 0l3 3-3-3z" clip-rule="evenodd"/></svg></button>
@@ -1854,7 +1940,7 @@
                 : recent.map(j => {
                     const st = getJobStatus(j);
                     const info = statusLabels[st] || statusLabels['submitted'];
-                    return `<tr class="border-b border-gray-800 hover:bg-gray-800/30 cursor-pointer" onclick="viewJob('${j.jobId}')">
+                    return `<tr class="border-b border-gray-800 hover:bg-gray-800/30 cursor-pointer" onclick="viewJob('${esc(j.jobId)}')">
                         <td class="p-3 text-xs text-gray-500 font-mono">${j.jobId||'-'}</td>
                         <td class="p-3 font-medium text-white">${j.namaJob||'-'}</td>
                         <td class="p-3 hidden sm:table-cell text-gray-400">${j.noInvois||'-'}</td>
@@ -1890,18 +1976,18 @@
                 const info = statusLabels[st] || statusLabels['submitted'];
                 return `
                 <tr class="border-b border-gray-800 hover:bg-gray-800/30">
-                    <td class="p-4 text-xs font-mono text-gray-500">${j.jobId}</td>
-                    <td class="p-4 font-medium text-white">${j.namaJob}</td>
+                    <td class="p-4 text-xs font-mono text-gray-500">${esc(j.jobId)}</td>
+                    <td class="p-4 font-medium text-white">${esc(j.namaJob)}</td>
                     <td class="p-4 text-gray-400">${j.noInvois||'-'}</td>
                     <td class="p-4 text-center text-gray-300">${j.helai||0}</td>
                     <td class="p-4 text-right font-medium text-brand-400">${(j.jumlah||0).toFixed(2)}</td>
                     <td class="p-4 text-center"><span class="text-xs px-2 py-1 rounded-full border ${info.color}">${info.label}</span></td>
                     <td class="p-4 text-xs text-gray-500">${(j.dicipta||'').toString().slice(0,24)}</td>
                     <td class="p-4 text-center whitespace-nowrap">
-                        <button onclick="loadJobData('${j.jobId}')" class="text-brand-400 hover:text-brand-300 text-xs font-medium">Load</button>
-                        <button onclick="loadJobForInvoice('${j.jobId}')" class="text-green-400 hover:text-green-300 text-xs font-medium ml-1">Invoice</button>
-                        <button onclick="loadJobForStatus('${j.jobId}')" class="text-amber-400 hover:text-amber-300 text-xs font-medium ml-1">Status</button>
-                        ${isAdmin ? `<button onclick="openJobDetail('${j.jobId}')" class="text-cyan-400 hover:text-cyan-300 text-xs font-medium ml-1">Review</button><button onclick="loadJobForCostProfit('${j.jobId}')" class="text-purple-400 hover:text-purple-300 text-xs font-medium ml-1">Cost</button><button onclick="deleteJobFromSheet('${j.jobId}')" class="text-red-400 hover:text-red-300 text-xs font-medium ml-1">Delete</button>` : ''}
+                        <button onclick="loadJobData('${esc(j.jobId)}')" class="text-brand-400 hover:text-brand-300 text-xs font-medium">Load</button>
+                        <button onclick="loadJobForInvoice('${esc(j.jobId)}')" class="text-green-400 hover:text-green-300 text-xs font-medium ml-1">Invoice</button>
+                        <button onclick="loadJobForStatus('${esc(j.jobId)}')" class="text-amber-400 hover:text-amber-300 text-xs font-medium ml-1">Status</button>
+                        ${isAdmin ? `<button onclick="openJobDetail('${esc(j.jobId)}')" class="text-cyan-400 hover:text-cyan-300 text-xs font-medium ml-1">Review</button><button onclick="loadJobForCostProfit('${esc(j.jobId)}')" class="text-purple-400 hover:text-purple-300 text-xs font-medium ml-1">Cost</button><button onclick="deleteJobFromSheet('${esc(j.jobId)}')" class="text-red-400 hover:text-red-300 text-xs font-medium ml-1">Delete</button>` : ''}
                     </td>
                 </tr>`;
             }).join('');
@@ -2027,18 +2113,18 @@
                     a.includes('Start') || a.includes('Mark') ? 'bg-amber-600 hover:bg-amber-500' :
                     a.includes('Revise') || a.includes('Reopen') ? 'bg-gray-600 hover:bg-gray-500' : 'bg-brand-600 hover:bg-brand-500';
                 const actionFn = getActionFn(a);
-                return `<button onclick="${actionFn}('${j.jobId}')" class="${btnClass} text-white text-xs font-medium px-2.5 py-1 rounded transition-colors">${a}</button>`;
+                return `<button onclick="${actionFn}('${esc(j.jobId)}')" class="${btnClass} text-white text-xs font-medium px-2.5 py-1 rounded transition-colors">${a}</button>`;
             }).join(' ');
 
             return `<tr class="border-b border-gray-800 hover:bg-gray-800/30">
-                <td class="p-4 text-xs font-mono text-gray-500">${j.jobId}</td>
-                <td class="p-4 font-medium text-white">${j.namaJob}</td>
+                <td class="p-4 text-xs font-mono text-gray-500">${esc(j.jobId)}</td>
+                <td class="p-4 font-medium text-white">${esc(j.namaJob)}</td>
                 <td class="p-4 hidden md:table-cell text-gray-400 text-xs">${j.diciptaOleh || j.rolePencipta || '-'}</td>
                 <td class="p-4 text-center text-gray-300">${j.helai||0}</td>
                 <td class="p-4 text-right font-medium text-brand-400">${(j.jumlah||0).toFixed(2)}</td>
                 <td class="p-4 text-center"><span class="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border ${info.color}"><span class="h-2 w-2 rounded-full ${info.dot}"></span>${info.label}</span></td>
                 <td class="p-4 text-center whitespace-nowrap">
-                    <button onclick="openJobDetail('${j.jobId}')" class="text-brand-400 hover:text-brand-300 text-xs font-medium mr-1">Review</button>
+                    <button onclick="openJobDetail('${esc(j.jobId)}')" class="text-brand-400 hover:text-brand-300 text-xs font-medium mr-1">Review</button>
                     ${actionButtons}
                 </td>
             </tr>`;
@@ -2106,16 +2192,16 @@
             quoteTotal += quote;
             return `<tr>
                 <td class="p-3 text-gray-400">${i+1}</td>
-                <td class="p-3 text-gray-300">${o.kolar} - ${o.lengan}</td>
-                <td class="p-3 text-white font-medium">${o.nama}</td>
-                <td class="p-3 text-center text-brand-400">${o.saiz}</td>
+                <td class="p-3 text-gray-300">${esc(o.kolar)} - ${esc(o.lengan)}</td>
+                <td class="p-3 text-white font-medium">${esc(o.nama)}</td>
+                <td class="p-3 text-center text-brand-400">${esc(o.saiz)}</td>
                 <td class="p-3 text-center">${o.remarks||'-'}</td>
-                <td class="p-3 text-right text-gray-400">RM ${base.toFixed(2)}</td>
+                <td class="p-3 text-right text-gray-400">${fmtMoney(base)}</td>
                 <td class="p-3 text-right"><input type="number" value="${quote.toFixed(2)}" step="0.5" min="0" data-bil="${o.bil||(i+1)}" oninput="recalcQuoteTotal()" class="w-24 px-2 py-1 bg-gray-800 border border-brand-700 rounded text-sm text-brand-300 text-right outline-none focus:border-brand-500"></td>
             </tr>`;
         }).join('');
-        document.getElementById('modal-base-total').textContent = 'RM ' + baseTotal.toFixed(2);
-        document.getElementById('modal-quote-total').textContent = 'RM ' + quoteTotal.toFixed(2);
+        document.getElementById('modal-base-total').textContent = fmtMoney(baseTotal);
+        document.getElementById('modal-quote-total').textContent = fmtMoney(quoteTotal);
 
         // Render action buttons
         renderModalActions(status);
@@ -2148,7 +2234,7 @@
         document.querySelectorAll('#modal-orders-tbody input').forEach(inp => {
             total += parseFloat(inp.value) || 0;
         });
-        document.getElementById('modal-quote-total').textContent = 'RM ' + total.toFixed(2);
+        document.getElementById('modal-quote-total').textContent = fmtMoney(total);
         updateBulkCount();
     }
 
@@ -2473,9 +2559,9 @@
             tr.className = 'hover:bg-blue-50 border-b border-gray-200';
             tr.innerHTML = `<td class="p-3 border-r border-gray-200 text-center">${counter++}</td>
                 <td class="p-3 border-r border-gray-200">${cat}</td>
-                <td class="p-3 border-r border-gray-200 font-medium">${o.name}</td>
-                <td class="p-3 border-r border-gray-200 text-center font-bold text-blue-700">${o.size}</td>
-                <td class="p-3 text-center font-bold bg-gray-50">${o.remarks}</td>`;
+                <td class="p-3 border-r border-gray-200 font-medium">${esc(o.name)}</td>
+                <td class="p-3 border-r border-gray-200 text-center font-bold text-blue-700">${esc(o.size)}</td>
+                <td class="p-3 text-center font-bold bg-gray-50">${esc(o.remarks)}</td>`;
             tbody.appendChild(tr);
             prevCat = cat;
         });
@@ -2493,7 +2579,7 @@
         tbody.innerHTML = '';
         // Apply branding to invoice template
         updateInvoiceBranding();
-        if(!sorted.length) { tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-gray-500">No data.</td></tr>'; document.getElementById('inv-grand-total').textContent='RM 0.00'; return; }
+        if(!sorted.length) { tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-gray-500">No data.</td></tr>'; document.getElementById('inv-grand-total').textContent=fmtMoney(0); return; }
         const groups = {};
         sorted.forEach(o => {
             const key = o.collar + ' - ' + o.sleeve;
@@ -2511,15 +2597,87 @@
             const sizeDesc = Object.entries(item.sizes).map(([s,info]) => s+'('+info.qty+') x RM'+info.unitPrice.toFixed(2)).join(', ');
             const prices = Object.values(item.sizes).map(i=>i.unitPrice);
             const minP = Math.min(...prices), maxP = Math.max(...prices);
-            const unitDisplay = minP===maxP ? 'RM '+minP.toFixed(2) : 'RM '+minP.toFixed(2)+' - RM '+maxP.toFixed(2);
+            const unitDisplay = minP===maxP ? fmtMoney(minP) : fmtMoney(minP)+' - '+fmtMoney(maxP);
             const tr = document.createElement('tr');
             tr.innerHTML = `<td class="p-4"><div class="font-bold text-gray-800">${item.name}</div><div class="text-xs text-gray-500 mt-1">Sizes: ${sizeDesc}</div></td>
                 <td class="p-4 text-center font-medium">${item.quantity} pcs</td>
                 <td class="p-4 text-right whitespace-nowrap">${unitDisplay}</td>
-                <td class="p-4 text-right font-medium text-gray-900 whitespace-nowrap">RM ${item.total.toFixed(2)}</td>`;
+                <td class="p-4 text-right font-medium text-gray-900 whitespace-nowrap">${fmtMoney(item.total)}</td>`;
             tbody.appendChild(tr);
         });
-        document.getElementById('inv-grand-total').textContent = 'RM ' + grand.toFixed(2);
+        document.getElementById('inv-subtotal').textContent = fmtMoney(grand);
+        document.getElementById('inv-grand-total').textContent = fmtMoney(grand);
+        // Display payment fields if loaded job has them
+        updateInvoicePaymentDisplay(grand);
+    }
+
+    function updateInvoicePaymentDisplay(grandTotal) {
+        const job = currentReviewJob ? currentReviewJob.job : null;
+        const deposit = job ? (parseFloat(job.deposit) || 0) : 0;
+        const paidAmount = job ? (parseFloat(job.paidAmount) || 0) : 0;
+        const balance = job ? (parseFloat(job.balance) || 0) : 0;
+        const payStatus = job ? (job.payStatus || 'unpaid') : 'unpaid';
+
+        const depRow = document.getElementById('inv-deposit-row');
+        const balRow = document.getElementById('inv-balance-row');
+        const payRow = document.getElementById('inv-paystatus-row');
+        const depEl = document.getElementById('inv-deposit');
+        const balEl = document.getElementById('inv-balance');
+        const payBadge = document.getElementById('inv-paystatus-badge');
+
+        if (deposit > 0 || balance > 0 || payStatus !== 'unpaid') {
+            if (depRow) depRow.classList.remove('hidden');
+            if (balRow) balRow.classList.remove('hidden');
+            if (payRow) payRow.classList.remove('hidden');
+            if (depEl) depEl.textContent = fmtMoney(deposit + paidAmount);
+            if (balEl) balEl.textContent = fmtMoney(balance > 0 ? balance : 0);
+            if (payBadge) {
+                const statusInfo = {
+                    'unpaid': { label:'UNPAID', color:'bg-red-100 text-red-700' },
+                    'partial': { label:'PARTIAL PAYMENT', color:'bg-amber-100 text-amber-700' },
+                    'paid': { label:'PAID IN FULL', color:'bg-green-100 text-green-700' }
+                };
+                const si = statusInfo[payStatus] || statusInfo['unpaid'];
+                payBadge.textContent = si.label;
+                payBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ' + si.color;
+            }
+        } else {
+            if (depRow) depRow.classList.add('hidden');
+            if (balRow) balRow.classList.add('hidden');
+            if (payRow) payRow.classList.add('hidden');
+        }
+        // Update payment panel
+        const payTotal = document.getElementById('pay-total');
+        if (payTotal) payTotal.value = fmtMoney(grandTotal);
+        const payDep = document.getElementById('pay-deposit');
+        if (payDep) payDep.value = deposit;
+        const payPaid = document.getElementById('pay-paid');
+        if (payPaid) payPaid.value = paidAmount;
+        const payBal = document.getElementById('pay-balance');
+        if (payBal) payBal.value = fmtMoney(balance);
+        const payStatBadge = document.getElementById('pay-status-badge');
+        if (payStatBadge) {
+            payStatBadge.textContent = (payStatus || 'unpaid').toUpperCase();
+        }
+    }
+
+    function togglePaymentPanel() {
+        document.getElementById('payment-panel').classList.toggle('hidden');
+    }
+
+    async function savePayment() {
+        if (!currentJobId) { showMessage('Load a job first', true); return; }
+        const deposit = parseFloat(document.getElementById('pay-deposit').value) || 0;
+        const paidAmount = parseFloat(document.getElementById('pay-paid').value) || 0;
+        const res = await apiCall('updatePayment', { jobId: currentJobId, deposit, paidAmount });
+        if (res && res.ok) {
+            showMessage('Payment saved! Balance: ' + fmtMoney(res.balance));
+            // Reload job to refresh invoice
+            await loadJobData(currentJobId, false);
+            generateInvoice();
+        } else {
+            showMessage('Payment save failed', true);
+        }
     }
 
     // ==========================================
@@ -2641,7 +2799,7 @@
             // Actual unit sale prices (not average) — show range if mixed
             const salePrices = Object.values(g.sizes).map(info => info.sale / info.qty);
             const minSale = Math.min(...salePrices), maxSale = Math.max(...salePrices);
-            const saleUnitDisplay = minSale === maxSale ? 'RM '+minSale.toFixed(2) : 'RM '+minSale.toFixed(2)+' - RM '+maxSale.toFixed(2);
+            const saleUnitDisplay = minSale === maxSale ? fmtMoney(minSale) : fmtMoney(minSale)+' - '+fmtMoney(maxSale);
             const tr = document.createElement('tr'); tr.className='border-b border-gray-200 hover:bg-amber-50';
             const costInputId = 'job-cost-'+key.replace(/[^a-zA-Z0-9]/g,'_');
             tr.innerHTML = '<td class="p-3 border border-gray-300"><div class="font-medium">'+key+'</div><div class="text-[10px] text-gray-500 mt-0.5">Sizes: '+sizeDesc+'</div></td>'+
@@ -2720,17 +2878,17 @@
 
             // Inline editable cells for admin
             const nameCell = isAdmin
-                ? `<input type="text" value="${o.name}" onchange="inlineEditOrder(${o.id},'name',this.value)" class="w-full px-2 py-1 bg-transparent border border-transparent hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded text-xs font-medium outline-none">`
-                : `<span class="font-medium">${o.name}</span>`;
+                ? `<input type="text" value="${esc(o.name)}" onchange="inlineEditOrder(${o.id},'name',this.value)" class="w-full px-2 py-1 bg-transparent border border-transparent hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded text-xs font-medium outline-none">`
+                : `<span class="font-medium">${esc(o.name)}</span>`;
             const sizeCell = isAdmin
                 ? `<select onchange="inlineEditOrder(${o.id},'size',this.value)" class="px-1 py-1 bg-transparent border border-transparent hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded text-xs font-bold text-blue-700 outline-none cursor-pointer">${sizeOrder.map(s=>'<option value="'+s+'" '+(s===o.size?'selected':'')+'>'+s+'</option>').join('')}</select>`
-                : `<span class="font-bold text-blue-700">${o.size}</span>`;
+                : `<span class="font-bold text-blue-700">${esc(o.size)}</span>`;
             const remarksCell = isAdmin
-                ? `<input type="text" value="${o.remarks}" onchange="inlineEditOrder(${o.id},'remarks',this.value)" class="w-16 px-2 py-1 bg-transparent border border-transparent hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded text-xs text-center font-bold outline-none">`
-                : `<span class="font-bold">${o.remarks}</span>`;
+                ? `<input type="text" value="${esc(o.remarks)}" onchange="inlineEditOrder(${o.id},'remarks',this.value)" class="w-16 px-2 py-1 bg-transparent border border-transparent hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded text-xs text-center font-bold outline-none">`
+                : `<span class="font-bold">${esc(o.remarks)}</span>`;
             const categoryCell = isAdmin
                 ? `<select onchange="inlineEditOrder(${o.id},'collar',this.value)" class="text-xs bg-transparent border border-transparent hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded outline-none mb-1">${Object.keys(collarPrices).map(c=>'<option value="'+c+'" '+(c===o.collar?'selected':'')+'>'+c+'</option>').join('')}</select><br><select onchange="inlineEditOrder(${o.id},'sleeve',this.value)" class="text-xs bg-transparent border border-transparent hover:border-gray-300 focus:border-blue-500 focus:bg-white rounded outline-none">${Object.keys(sleevePrices).map(s=>'<option value="'+s+'" '+(s===o.sleeve?'selected':'')+'>'+s+'</option>').join('')}</select>`
-                : `${o.collar} - ${o.sleeve}`;
+                : `${esc(o.collar)} - ${esc(o.sleeve)}`;
 
             const statusCell = isAdmin
                 ? `<select onchange="updateOrderStatus(${o.id},this.value)" class="px-2 py-1 rounded border ${info.color} text-xs font-semibold cursor-pointer outline-none">${Object.entries(statusLabels).filter(([k]) => workflowSteps.includes(k) || k==='rejected' || k==='pending').map(([k,v])=>'<option value="'+k+'" '+(k===status?'selected':'')+'>'+v.label+'</option>').join('')}</select>`
@@ -3022,7 +3180,7 @@
                 const total = calculateCustomPrice(collar, sleeve, 'M');
                 const baseTotal = getCollarPrice(collar) + getSleevePrice(sleeve);
                 const isDiff = total !== baseTotal;
-                html += `<td class="p-2 text-center ${isDiff ? 'text-amber-400 font-bold' : 'text-gray-400'}">RM ${total.toFixed(2)}</td>`;
+                html += `<td class="p-2 text-center ${isDiff ? 'text-amber-400 font-bold' : 'text-gray-400'}">${fmtMoney(total)}</td>`;
             });
             tr.innerHTML = html;
             tbody.appendChild(tr);
@@ -3108,7 +3266,7 @@
         } else {
             sampleBranded = getBrandedPrice(sampleBase, 'Polo collar', 'Pendek', 'M');
         }
-        document.getElementById('prev-sample-price').textContent = 'RM ' + sampleBranded.toFixed(2);
+        document.getElementById('prev-sample-price').textContent = fmtMoney(sampleBranded);
 
         // Markup preview text
         if (mkType === 'custom') {

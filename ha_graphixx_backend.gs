@@ -48,7 +48,18 @@ function setupSheets() {
   // Sheet: Jobs - dah ada data
   if (!ss.getSheetByName('Jobs')) {
     const jobsSheet = ss.insertSheet('Jobs');
-    jobsSheet.appendRow(['Job ID', 'Nama Job', 'No. Invois', 'Status', 'Jumlah Helai', 'Jumlah (RM)', 'Konfigurasi Harga JSON', 'Cost JSON', 'Dicipta Pada', 'Dikemaskini Pada', 'Dicipta Oleh', 'Role Pencipta', 'Agent Code', 'Customer Name', 'Customer Contact', 'Brand JSON', 'Notes']);
+    jobsSheet.appendRow(['Job ID', 'Nama Job', 'No. Invois', 'Status', 'Jumlah Helai', 'Jumlah (RM)', 'Konfigurasi Harga JSON', 'Cost JSON', 'Dicipta Pada', 'Dikemaskini Pada', 'Dicipta Oleh', 'Role Pencipta', 'Agent Code', 'Customer Name', 'Customer Contact', 'Brand JSON', 'Notes', 'Deposit (RM)', 'Paid Amount (RM)', 'Balance (RM)', 'Payment Status']);
+  } else {
+    // Ensure payment columns exist (add if missing)
+    const jobsSheet = ss.getSheetByName('Jobs');
+    const header = jobsSheet.getRange(1, 1, 1, jobsSheet.getLastColumn()).getValues()[0];
+    if (header.length < 21) {
+      while (jobsSheet.getLastColumn() < 17) jobsSheet.insertColumnAfter(jobsSheet.getLastColumn());
+      jobsSheet.getRange(1, 18).setValue('Deposit (RM)');
+      jobsSheet.getRange(1, 19).setValue('Paid Amount (RM)');
+      jobsSheet.getRange(1, 20).setValue('Balance (RM)');
+      jobsSheet.getRange(1, 21).setValue('Payment Status');
+    }
   }
   
   // Sheet: Orders - dah ada data
@@ -97,7 +108,7 @@ function handleRequest(e) {
   
   // Endpoints that DON'T require auth
   const publicEndpoints = ['ping', 'login', 'portalLogin'];
-  const adminOnlyEndpoints = ['deleteJob', 'updateJobStatus', 'saveQuote', 'saveSettings'];
+  const adminOnlyEndpoints = ['deleteJob', 'updateJobStatus', 'saveQuote', 'saveSettings', 'updatePayment'];
   
   // Check auth for non-public endpoints
   if (publicEndpoints.indexOf(action) === -1) {
@@ -188,6 +199,7 @@ function handleRequest(e) {
       case 'portalChangePassword':result = apiPortalChangePassword(params); break;
       case 'logout':       invalidateSession(String(params.token||'')); result = { ok: true, message: 'Logged out' }; break;
       case 'getAuditLog':  result = apiGetAuditLog(params); break;
+      case 'updatePayment': result = apiUpdatePayment(params); break;
       default:             result = { ok: false, error: 'Unknown action: ' + action };
     }
   } catch(err) {
@@ -457,7 +469,12 @@ function apiGetJob(params) {
         dicipta: jobsData[i][8] ? new Date(jobsData[i][8]).toLocaleString('en-GB') : '',
         dikemaskini: jobsData[i][9] ? new Date(jobsData[i][9]).toLocaleString('en-GB') : '',
         diciptaOleh: jobsData[i][10] || '',
-        rolePencipta: jobsData[i][11] || ''
+        rolePencipta: jobsData[i][11] || '',
+        // Payment fields (columns 18-21, 0-indexed 17-20)
+        deposit: parseFloat(jobsData[i][17]) || 0,
+        paidAmount: parseFloat(jobsData[i][18]) || 0,
+        balance: parseFloat(jobsData[i][19]) || 0,
+        payStatus: String(jobsData[i][20] || 'unpaid')
       };
       break;
     }
@@ -643,21 +660,35 @@ function apiDeleteJob(params) {
   return { ok: true, message: 'Job dipadam: ' + jobId };
 }
 
-// UPDATE ORDER STATUS
+// UPDATE ORDER STATUS (ownership-checked)
 function apiUpdateOrderStatus(params) {
   const jobId = String(params.jobId || '');
   const bil = parseInt(params.bil) || 0;
   const newStatus = String(params.status || '');
+  const userId = String(params.userId || '');
+  const userRole = String(params.userRole || '');
+  const isAdmin = userRole === 'admin';
   
   if (!jobId || !bil) return { ok: false, error: 'jobId dan bil diperlukan' };
   
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const jobsSheet = ss.getSheetByName('Jobs');
+  // Ownership check: non-admin can only update own job's orders
+  if (!isAdmin) {
+    const jobsData = jobsSheet.getDataRange().getValues();
+    let isOwner = false;
+    for (let i = 1; i < jobsData.length; i++) {
+      if (String(jobsData[i][0]) === jobId && String(jobsData[i][10]||'') === userId) { isOwner = true; break; }
+    }
+    if (!isOwner) return { ok: false, error: 'Access denied: not your job' };
+  }
   const ordersSheet = ss.getSheetByName('Orders');
   const data = ordersSheet.getDataRange().getValues();
   
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === jobId && parseInt(data[i][1]) === bil) {
       ordersSheet.getRange(i+1, 11).setValue(newStatus); // Status Item column
+      writeAuditLog(userId, 'updateOrderStatus', jobId, 'Item '+bil+' → '+newStatus);
       return { ok: true, message: 'Status dikemaskini' };
     }
   }
@@ -721,6 +752,7 @@ function apiUpdateJobStatus(params) {
         // Email sending failed - don't block the status update
       }
       
+      writeAuditLog(String(params.userId||''), 'updateJobStatus', jobId, newStatus + (reason?' ('+reason+')':''));
       return { ok: true, message: 'Job status updated to: ' + newStatus };
     }
   }
@@ -795,7 +827,43 @@ function apiSaveQuote(params) {
     }
   }
   
+  writeAuditLog(String(params.userId||''), 'saveQuote', jobId, 'Total RM'+totalQuoted);
   return { ok: true, message: 'Quotation saved', totalQuoted };
+}
+
+// UPDATE PAYMENT (admin set deposit/paid amount, auto-calc balance + status)
+function apiUpdatePayment(params) {
+  const jobId = String(params.jobId || '');
+  const deposit = parseFloat(params.deposit) || 0;
+  const paidAmount = parseFloat(params.paidAmount) || 0;
+  const userId = String(params.userId || '');
+  
+  if (!jobId) return { ok: false, error: 'jobId required' };
+  
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const jobsSheet = ss.getSheetByName('Jobs');
+  const data = jobsSheet.getDataRange().getValues();
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === jobId) {
+      const totalAmount = parseFloat(data[i][5]) || 0;
+      const totalPaid = deposit + paidAmount;
+      const balance = totalAmount - totalPaid;
+      let payStatus = 'unpaid';
+      if (balance <= 0) payStatus = 'paid';
+      else if (totalPaid > 0) payStatus = 'partial';
+      
+      // Column 18=Deposit, 19=Paid, 20=Balance, 21=Payment Status
+      jobsSheet.getRange(i+1, 18).setValue(deposit);
+      jobsSheet.getRange(i+1, 19).setValue(paidAmount);
+      jobsSheet.getRange(i+1, 20).setValue(balance);
+      jobsSheet.getRange(i+1, 21).setValue(payStatus);
+      
+      writeAuditLog(userId, 'updatePayment', jobId, 'Deposit:'+deposit+' Paid:'+paidAmount+' Balance:'+balance+' Status:'+payStatus);
+      return { ok: true, deposit, paidAmount, balance, payStatus };
+    }
+  }
+  return { ok: false, error: 'Job not found' };
 }
 
 // GET SETTINGS
@@ -903,7 +971,9 @@ function apiPortalLogin(params) {
           city: '',
           state: ''
         };
-        return { ok: true, token: 'portal-' + row[0] + '-' + Date.now(), profile };
+        // Use real session token (same system as ERP login)
+        const token = createSession(String(row[0]), role, String(row[3]||''));
+        return { ok: true, token: token, profile };
       }
     }
   }
@@ -926,12 +996,9 @@ function getPortalProfile(sheet, rowIdx, row) {
 
 // PORTAL BOOTSTRAP - load all data for logged-in customer
 function apiPortalBootstrap(params) {
-  const token = String(params.token || '');
-  if (!token) return { ok: false, error: 'Token required' };
-  
-  // Extract user ID from token: portal-USERID-TIMESTAMP
-  const parts = token.split('-');
-  const userId = parts.length >= 3 ? parts.slice(1, -1).join('-') : '';
+  // userId is injected by session token verification
+  const userId = String(params.userId || '');
+  if (!userId) return { ok: false, error: 'Token required' };
   
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const jobsSheet = ss.getSheetByName('Jobs');
@@ -1023,13 +1090,10 @@ function apiPortalBootstrap(params) {
 
 // PORTAL SUBMIT REQUEST - customer submit new quote request
 function apiPortalSubmitRequest(params) {
-  const token = String(params.token || '');
+  const userId = String(params.userId || '');
   const service = String(params.service || 'Custom Jersey');
   const qty = parseInt(params.qty) || 0;
   const notes = String(params.notes || '');
-  
-  const parts = token.split('-');
-  const userId = parts.length >= 3 ? parts.slice(1, -1).join('-') : '';
   
   // Create a job with status 'submitted'
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -1075,11 +1139,9 @@ function apiPortalSubmitRequest(params) {
 
 // PORTAL UPDATE PROFILE
 function apiPortalUpdateProfile(params) {
-  const token = String(params.token || '');
+  const userId = String(params.userId || '');
   const profile = params.profile || {};
-  
-  const parts = token.split('-');
-  const userId = parts.length >= 3 ? parts.slice(1, -1).join('-') : '';
+  if (typeof profile === 'string') { try { profile = JSON.parse(profile); } catch(e) { profile = {}; } }
   
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName('Users');
@@ -1100,14 +1162,11 @@ function apiPortalUpdateProfile(params) {
 
 // PORTAL CHANGE PASSWORD
 function apiPortalChangePassword(params) {
-  const token = String(params.token || '');
+  const userId = String(params.userId || '');
   const current = String(params.current || '');
   const next = String(params.next || '');
   
   if (!next || next.length < 8) return { ok: false, error: 'New password must be at least 8 characters' };
-  
-  const parts = token.split('-');
-  const userId = parts.length >= 3 ? parts.slice(1, -1).join('-') : '';
   
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName('Users');
