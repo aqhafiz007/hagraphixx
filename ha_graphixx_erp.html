@@ -1125,6 +1125,7 @@
     let orders = [];
     let orderIdCounter = 1;
     let currentJobId = null; // null = new job; set when a saved job is loaded
+    let loadedJob = null; // full job object from backend (for payment display)
     let currentUser = null;
     let sessionToken = null;
     let savedJobs = [];
@@ -1234,7 +1235,7 @@
     // API CALLER
     // ==========================================
     // Actions that write data — use POST to avoid URL length limits
-    const POST_ACTIONS = ['saveJob', 'deleteJob', 'saveQuote', 'saveSettings', 'updateJobStatus', 'updateOrderStatus', 'portalSubmitRequest', 'portalUpdateProfile', 'portalChangePassword', 'logout', 'updatePayment'];
+    const POST_ACTIONS = ['saveJob', 'deleteJob', 'saveQuote', 'saveSettings', 'updateJobStatus', 'updateOrderStatus', 'portalSubmitRequest', 'portalUpdateProfile', 'portalChangePassword', 'logout', 'updatePayment', 'quoteReply'];
 
     async function apiCall(action, params = {}) {
         if (USE_OFFLINE_MODE) return offlineFallback(action, params);
@@ -1288,8 +1289,18 @@
             return json;
         } catch(err) {
             clearTimeout(t);
-            showMessage('API offline - using local mode', true);
-            return offlineFallback(action, params);
+            // Jangan benarkan login offline bila API fail — security risk
+            if (action === 'login') {
+                showMessage('Server unreachable. Please try again later.', true);
+                return { ok: false, error: 'Server unreachable' };
+            }
+            // Untuk action lain, cuba offline fallback hanya jika dah ada session
+            if (sessionToken) {
+                showMessage('API offline — using cached data', true);
+                return offlineFallback(action, params);
+            }
+            showMessage('API offline — please login again', true);
+            return { ok: false, error: 'Server unreachable' };
         }
     }
 
@@ -1301,10 +1312,9 @@
         if (!data.settings) data.settings = {};
         switch(action) {
             case 'login':
-                const users = { admin:{password:'admin123',role:'admin',name:'Administrator'}, agen001:{password:'agen123',role:'agen',name:'Agen Ali'}, cus001:{password:'cus123',role:'customer',name:'Siti Aishah'} };
-                const u = users[(params.userId||'').toLowerCase()];
-                if (u && u.password === params.password) return { ok:true, token:'offline-'+params.userId+'-'+Date.now(), user:{id:params.userId.toLowerCase(), role:u.role, name:u.name, agentCode:''} };
-                return { ok:false, error:'Invalid credentials (offline mode)' };
+                // SECURITY: offline login only allowed if USE_OFFLINE_MODE (dev/testing)
+                // Bila API live, login mesti melalui backend — jangan benarkan offline login
+                return { ok:false, error:'Cannot login in offline mode. Please check your connection.' };
             case 'logout':
                 return { ok:true, message:'Logged out (offline)' };
             case 'getDashboard':
@@ -1614,19 +1624,19 @@
                     if (start !== -1 && si >= start) surcharge = (si - start + 1) * (brandingConfig.customSurchargeStep || 0);
                 }
                 total = cp + sp + surcharge;
-                document.getElementById('bd-collar').textContent = 'Collar: RM' + cp.toFixed(2) + ' (your price)';
-                document.getElementById('bd-sleeve').textContent = 'Sleeve: RM' + sp.toFixed(2) + ' (your price)';
+                document.getElementById('bd-collar').textContent = 'Collar: ' + fmtMoney(cp) + ' (your price)';
+                document.getElementById('bd-sleeve').textContent = 'Sleeve: ' + fmtMoney(sp) + ' (your price)';
             } else {
                 // Use SAME calculatePrice function that save uses — single source of truth
                 total = calculatePrice(collar, sleeve, size);
                 cp = getPricing(collar, sleeve);
                 sp = 0;
                 surcharge = total - cp;
-                document.getElementById('bd-collar').textContent = 'Base: RM' + cp.toFixed(2);
+                document.getElementById('bd-collar').textContent = 'Base: ' + fmtMoney(cp);
                 document.getElementById('bd-sleeve').textContent = '';
             }
             document.getElementById('live-price').textContent = fmtMoney(total);
-            document.getElementById('bd-surcharge').textContent = surcharge > 0 ? ' + Plus Size: RM' + surcharge.toFixed(2) : '';
+            document.getElementById('bd-surcharge').textContent = surcharge > 0 ? ' + Plus Size: ' + fmtMoney(surcharge) : '';
             bd.classList.remove('hidden');
         } else {
             document.getElementById('live-price').textContent = fmtMoney(0);
@@ -1920,7 +1930,7 @@
             const cards = [
                 { label:'Total Jobs', value:s.totalJobs||0, color:'brand', icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />' },
                 { label:'Total Pieces', value:s.totalHelai||0, color:'green', icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />' },
-                { label:'Revenue (RM)', value:(s.totalRevenue||0).toFixed(2), color:'amber', icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />' },
+                { label:'Revenue (' + (currencySymbols[currentCurrency]||currentCurrency) + ')', value:fmtMoney(s.totalRevenue||0), color:'amber', icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />' },
                 { label:'Active Jobs', value:s.activeJobs||0, color:'purple', icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />' }
             ];
             document.getElementById('dash-stats').innerHTML = cards.map(c => `
@@ -2383,7 +2393,7 @@
     async function submitAcceptQuote() {
         if (!currentReviewJob) return;
         const jobId = currentReviewJob.job.jobId;
-        await apiCall('updateJobStatus', { jobId, status: 'confirmed', reason: 'Quote accepted by ' + (currentUser?.name || 'customer') });
+        await apiCall('quoteReply', { jobId, replyType: 'accept' });
         showMessage('Quote diterima! Job akan diproses.');
         loadReviewJobs();
         closeJobDetailModal();
@@ -2393,7 +2403,7 @@
         if (!currentReviewJob) return;
         const jobId = currentReviewJob.job.jobId;
         const reason = document.getElementById('quote-reject-reason')?.value || 'Rejected by customer';
-        await apiCall('updateJobStatus', { jobId, status: 'rejected', reason });
+        await apiCall('quoteReply', { jobId, replyType: 'reject', reason });
         showMessage('Quote ditolak. Admin akan dimaklumkan.', true);
         loadReviewJobs();
         closeJobDetailModal();
@@ -2404,8 +2414,8 @@
         const jobId = currentReviewJob.job.jobId;
         const amount = parseFloat(document.getElementById('counter-offer-amount')?.value) || 0;
         if (amount <= 0) { showMessage('Masukkan jumlah yang sah', true); return; }
-        await apiCall('updateJobStatus', { jobId, status: 'counter-offer', reason: 'Counter offer: RM' + amount.toFixed(2) + ' by ' + (currentUser?.name || 'customer') });
-        showMessage('Counter offer dihantar: RM' + amount.toFixed(2) + '. Admin akan semak.');
+        await apiCall('quoteReply', { jobId, replyType: 'counter', counterAmount: amount });
+        showMessage('Counter offer dihantar: ' + fmtMoney(amount) + '. Admin akan semak.');
         loadReviewJobs();
         closeJobDetailModal();
     }
@@ -2481,6 +2491,7 @@
         if (!res.ok) { showMessage('Load failed', true); return; }
         const job = res.job;
         currentJobId = jobId; // track loaded job
+        loadedJob = job; // save full job object for payment display
         document.getElementById('global-job-name').value = job.namaJob || '';
         document.getElementById('global-invoice-no').value = job.noInvois || '';
         orders = (res.orders||[]).map((o,i) => ({ id:orderIdCounter++, bil:o.bil||(i+1), name:(o.nama||'').toUpperCase(), collar:o.kolar, sleeve:o.lengan, size:o.saiz, remarks:o.remarks||'-', price:parseFloat(o.hargaUnit)||0, status:o.status||'pending' }));
@@ -2493,6 +2504,7 @@
 
     function startNewJob() {
         currentJobId = null;
+        loadedJob = null;
         orders = []; orderIdCounter = 1;
         document.getElementById('global-job-name').value = '';
         document.getElementById('global-invoice-no').value = '';
@@ -2594,7 +2606,7 @@
         let grand = 0;
         Object.entries(groups).forEach(([key,item]) => {
             grand += item.total;
-            const sizeDesc = Object.entries(item.sizes).map(([s,info]) => s+'('+info.qty+') x RM'+info.unitPrice.toFixed(2)).join(', ');
+            const sizeDesc = Object.entries(item.sizes).map(([s,info]) => s+'('+info.qty+') x '+fmtMoney(info.unitPrice)).join(', ');
             const prices = Object.values(item.sizes).map(i=>i.unitPrice);
             const minP = Math.min(...prices), maxP = Math.max(...prices);
             const unitDisplay = minP===maxP ? fmtMoney(minP) : fmtMoney(minP)+' - '+fmtMoney(maxP);
@@ -2612,7 +2624,8 @@
     }
 
     function updateInvoicePaymentDisplay(grandTotal) {
-        const job = currentReviewJob ? currentReviewJob.job : null;
+        // Use loadedJob (set by loadJobData) or currentReviewJob (set by openJobDetail)
+        const job = loadedJob || (currentReviewJob ? currentReviewJob.job : null);
         const deposit = job ? (parseFloat(job.deposit) || 0) : 0;
         const paidAmount = job ? (parseFloat(job.paidAmount) || 0) : 0;
         const balance = job ? (parseFloat(job.balance) || 0) : 0;
@@ -3274,9 +3287,9 @@
         } else if (mkType === 'none' || mkVal === 0) {
             document.getElementById('markup-preview').textContent = 'Base price: RM ' + sampleBase.toFixed(2);
         } else if (mkType === 'percent') {
-            document.getElementById('markup-preview').textContent = '+' + mkVal + '% = RM ' + sampleBase.toFixed(2) + ' → RM ' + sampleBranded.toFixed(2);
+            document.getElementById('markup-preview').textContent = '+' + mkVal + '% = ' + fmtMoney(sampleBase) + ' → ' + fmtMoney(sampleBranded);
         } else {
-            document.getElementById('markup-preview').textContent = '+RM' + mkVal.toFixed(2) + ' = RM ' + sampleBase.toFixed(2) + ' → RM ' + sampleBranded.toFixed(2);
+            document.getElementById('markup-preview').textContent = '+' + fmtMoney(mkVal) + ' = ' + fmtMoney(sampleBase) + ' → ' + fmtMoney(sampleBranded);
         }
     }
 

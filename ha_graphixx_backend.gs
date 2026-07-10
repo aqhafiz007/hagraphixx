@@ -108,7 +108,7 @@ function handleRequest(e) {
   
   // Endpoints that DON'T require auth
   const publicEndpoints = ['ping', 'login', 'portalLogin'];
-  const adminOnlyEndpoints = ['deleteJob', 'updateJobStatus', 'saveQuote', 'saveSettings', 'updatePayment'];
+  const adminOnlyEndpoints = ['deleteJob', 'updateJobStatus', 'saveQuote', 'saveSettings', 'updatePayment', 'getAuditLog'];
   
   // Check auth for non-public endpoints
   if (publicEndpoints.indexOf(action) === -1) {
@@ -200,6 +200,8 @@ function handleRequest(e) {
       case 'logout':       invalidateSession(String(params.token||'')); result = { ok: true, message: 'Logged out' }; break;
       case 'getAuditLog':  result = apiGetAuditLog(params); break;
       case 'updatePayment': result = apiUpdatePayment(params); break;
+      case 'quoteReply':   result = apiQuoteReply(params); break;
+      case 'getPaymentHistory': result = apiGetPaymentHistory(params); break;
       default:             result = { ok: false, error: 'Unknown action: ' + action };
     }
   } catch(err) {
@@ -837,6 +839,8 @@ function apiUpdatePayment(params) {
   const deposit = parseFloat(params.deposit) || 0;
   const paidAmount = parseFloat(params.paidAmount) || 0;
   const userId = String(params.userId || '');
+  const method = String(params.method || 'cash');
+  const reference = String(params.reference || '');
   
   if (!jobId) return { ok: false, error: 'jobId required' };
   
@@ -859,11 +863,64 @@ function apiUpdatePayment(params) {
       jobsSheet.getRange(i+1, 20).setValue(balance);
       jobsSheet.getRange(i+1, 21).setValue(payStatus);
       
-      writeAuditLog(userId, 'updatePayment', jobId, 'Deposit:'+deposit+' Paid:'+paidAmount+' Balance:'+balance+' Status:'+payStatus);
+      // Record transaction in PaymentHistory sheet
+      let paySheet = ss.getSheetByName('PaymentHistory');
+      if (!paySheet) {
+        paySheet = ss.insertSheet('PaymentHistory');
+        paySheet.appendRow(['Date', 'Job ID', 'Amount', 'Type', 'Method', 'Reference', 'Recorded By']);
+      }
+      if (deposit > 0) {
+        paySheet.appendRow([new Date().toLocaleString('en-GB'), jobId, deposit, 'Deposit', method, reference, userId]);
+      }
+      if (paidAmount > 0) {
+        paySheet.appendRow([new Date().toLocaleString('en-GB'), jobId, paidAmount, 'Payment', method, reference, userId]);
+      }
+      
+      writeAuditLog(userId, 'updatePayment', jobId, 'Deposit:'+deposit+' Paid:'+paidAmount+' Balance:'+balance+' Status:'+payStatus+' Method:'+method);
       return { ok: true, deposit, paidAmount, balance, payStatus };
     }
   }
   return { ok: false, error: 'Job not found' };
+}
+
+// GET PAYMENT HISTORY for a job
+function apiGetPaymentHistory(params) {
+  const jobId = String(params.jobId || '');
+  const userId = String(params.userId || '');
+  const userRole = String(params.userRole || '');
+  const isAdmin = userRole === 'admin';
+  if (!jobId) return { ok: false, error: 'jobId required' };
+  
+  // Ownership check for non-admin
+  if (!isAdmin) {
+    const ss0 = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const jobsSheet = ss0.getSheetByName('Jobs');
+    const jobsData = jobsSheet.getDataRange().getValues();
+    let isOwner = false;
+    for (let i = 1; i < jobsData.length; i++) {
+      if (String(jobsData[i][0]) === jobId && String(jobsData[i][10]||'') === userId) { isOwner = true; break; }
+    }
+    if (!isOwner) return { ok: false, error: 'Access denied' };
+  }
+  
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const paySheet = ss.getSheetByName('PaymentHistory');
+  if (!paySheet) return { ok: true, history: [] };
+  const data = paySheet.getDataRange().getValues();
+  const history = [];
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][1]) === jobId) {
+      history.push({
+        date: data[i][0],
+        amount: parseFloat(data[i][2]) || 0,
+        type: String(data[i][3] || ''),
+        method: String(data[i][4] || ''),
+        reference: String(data[i][5] || ''),
+        recordedBy: String(data[i][6] || '')
+      });
+    }
+  }
+  return { ok: true, history };
 }
 
 // GET SETTINGS
@@ -871,11 +928,17 @@ function apiGetSettings(params) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName('Settings');
   if (!sheet) return { ok: false, error: 'Sheet Settings tidak wujud' };
+  const userRole = String(params.userRole || '');
+  const isAdmin = userRole === 'admin';
   
   const data = sheet.getDataRange().getValues();
   const settings = {};
   for (let i = 1; i < data.length; i++) {
     if (data[i][0]) settings[data[i][0]] = data[i][1];
+  }
+  // SECURITY: Non-admin cannot access cost_config (modal/supplier cost)
+  if (!isAdmin) {
+    delete settings.cost_config;
   }
   return { ok: true, settings };
 }
@@ -1212,4 +1275,53 @@ function apiGetAuditLog(params) {
     });
   }
   return { ok: true, logs };
+}
+
+// ==========================================
+// QUOTE REPLY (customer/agen accept/reject/counter — NOT admin-only)
+// ==========================================
+function apiQuoteReply(params) {
+  const jobId = String(params.jobId || '');
+  const replyType = String(params.replyType || ''); // accept, reject, counter
+  const counterAmount = parseFloat(params.counterAmount) || 0;
+  const reason = String(params.reason || '');
+  const userId = String(params.userId || '');
+  const userRole = String(params.userRole || '');
+  const isAdmin = userRole === 'admin';
+  
+  if (!jobId || !replyType) return { ok: false, error: 'jobId and replyType required' };
+  
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const jobsSheet = ss.getSheetByName('Jobs');
+  const data = jobsSheet.getDataRange().getValues();
+  const now = new Date().toLocaleString('en-GB');
+  
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === jobId) {
+      // Ownership check: non-admin can only reply to own jobs
+      if (!isAdmin && String(data[i][10] || '') !== userId) {
+        return { ok: false, error: 'Access denied: not your job' };
+      }
+      let newStatus = '';
+      let detail = '';
+      if (replyType === 'accept') {
+        newStatus = 'confirmed';
+        detail = 'Quote accepted by ' + userId;
+      } else if (replyType === 'reject') {
+        newStatus = 'rejected';
+        detail = 'Quote rejected by ' + userId + (reason ? ': ' + reason : '');
+      } else if (replyType === 'counter') {
+        newStatus = 'counter-offer';
+        detail = 'Counter offer RM' + counterAmount.toFixed(2) + ' by ' + userId;
+      } else {
+        return { ok: false, error: 'Invalid replyType' };
+      }
+      jobsSheet.getRange(i+1, 4).setValue(newStatus);
+      jobsSheet.getRange(i+1, 10).setValue(now);
+      if (reason || counterAmount > 0) jobsSheet.getRange(i+1, 17).setValue('[' + newStatus + '] ' + detail);
+      writeAuditLog(userId, 'quoteReply', jobId, detail);
+      return { ok: true, message: 'Quote reply: ' + newStatus, newStatus };
+    }
+  }
+  return { ok: false, error: 'Job not found' };
 }
