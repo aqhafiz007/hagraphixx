@@ -398,7 +398,7 @@ function apiGetDashboard(params) {
       status: jobsData[i][3],
       helai: jobsData[i][4],
       // Non-admin: don't expose revenue amount
-      jumlah: isAdmin ? jobsData[i][5] : 0,
+        jumlah: jobsData[i][5],
       dicipta: jobsData[i][8] ? new Date(jobsData[i][8]).toLocaleDateString('en-GB') : ''
     });
   }
@@ -409,8 +409,8 @@ function apiGetDashboard(params) {
     stats: {
       totalJobs,
       totalHelai,
-      // Non-admin: don't expose revenue
-      totalRevenue: isAdmin ? totalRevenue : 0,
+      // Non-admin hanya nampak job sendiri, jadi jumlah ini adalah pendapatan mereka sendiri.
+      totalRevenue: totalRevenue,
       activeJobs,
       statusCounts,
       totalOrders: ordersData.length - 1
@@ -440,7 +440,7 @@ function apiGetJobs(params) {
       status: data[i][3],
       helai: data[i][4],
       // Non-admin: don't expose total amount
-      jumlah: isAdmin ? data[i][5] : 0,
+      jumlah: data[i][5],
       config: data[i][6],
       dicipta: data[i][8] ? new Date(data[i][8]).toLocaleString('en-GB') : '',
       dikemaskini: data[i][9] ? new Date(data[i][9]).toLocaleString('en-GB') : '',
@@ -481,7 +481,7 @@ function apiGetJob(params) {
         status: jobsData[i][3],
         helai: jobsData[i][4],
         // Non-admin: don't expose total amount
-        jumlah: isAdmin ? jobsData[i][5] : 0,
+      jumlah: jobsData[i][5],
         config: jobsData[i][6],
         dicipta: jobsData[i][8] ? new Date(jobsData[i][8]).toLocaleString('en-GB') : '',
         dikemaskini: jobsData[i][9] ? new Date(jobsData[i][9]).toLocaleString('en-GB') : '',
@@ -552,17 +552,41 @@ function apiSaveJob(params) {
     const ts = Utilities.formatDate(now, 'Asia/Kuala_Lumpur', 'yyyyMMdd-HHmmss');
     const rand = Math.floor(Math.random() * 16777215).toString(16).toUpperCase().padStart(6, '0');
     jobId = 'JOB-' + ts + '-' + rand;
+    totalRM = ordersData.reduce((s, o) => s + (parseFloat(o.hargaUnit) || 0), 0);
   }
   
-  // Kira jumlah
+  // Kira jumlah helai
   let totalHelai = ordersData.length;
   let totalRM = 0;
-  ordersData.forEach(o => totalRM += parseFloat(o.hargaUnit) || 0);
+  // Non-admin yang kemaskini job yang statusnya sudah melepasi 'submitted'
+  // MUNGKIN telah menerima quote — kekalkan harga yang dipersetujui supaya
+  // total tidak ditetapkan semula ke harga asas.
+  let preservePrices = false;
+  let existingPrices = {}; // bil -> hargaUnit sedia ada
+  if (!isNew && userRole !== 'admin') {
+    const chkData = jobsSheet.getDataRange().getValues();
+    let curStatus = '';
+    for (let i = 1; i < chkData.length; i++) {
+      if (chkData[i][0] === jobId) { curStatus = String(chkData[i][3] || ''); break; }
+    }
+    if (curStatus !== 'submitted') {
+      preservePrices = true;
+      const existOrders = ordersSheet.getDataRange().getValues();
+      for (let i = 1; i < existOrders.length; i++) {
+        if (existOrders[i][0] === jobId) existingPrices[parseInt(existOrders[i][1])] = parseFloat(existOrders[i][7]) || 0;
+      }
+    }
+  }
   
   const config = jobData.config ? (typeof jobData.config === 'string' ? jobData.config : JSON.stringify(jobData.config)) : '';
   const nowStr = new Date().toLocaleString('en-GB');
   
   if (isNew) {
+    const now = new Date();
+    const ts = Utilities.formatDate(now, 'Asia/Kuala_Lumpur', 'yyyyMMdd-HHmmss');
+    const rand = Math.floor(Math.random() * 16777215).toString(16).toUpperCase().padStart(6, '0');
+    jobId = 'JOB-' + ts + '-' + rand;
+    totalRM = ordersData.reduce((s, o) => s + (parseFloat(o.hargaUnit) || 0), 0);
     // Tambah row baru ke Jobs
     jobsSheet.appendRow([
       jobId,
@@ -603,6 +627,10 @@ function apiSaveJob(params) {
     });
   } else {
     // Kemaskini job sedia ada
+    totalRM = ordersData.reduce((s, o) => {
+      const bil = o.bil || 0;
+      return s + (preservePrices && existingPrices[bil] !== undefined ? existingPrices[bil] : (parseFloat(o.hargaUnit) || 0));
+    }, 0);
     const jobsData = jobsSheet.getDataRange().getValues();
     for (let i = 1; i < jobsData.length; i++) {
       if (jobsData[i][0] === jobId) {
@@ -633,6 +661,7 @@ function apiSaveJob(params) {
     // Tambah orders baru
     let bil = 1;
     ordersData.forEach(o => {
+      const itemPrice = preservePrices && existingPrices[o.bil] !== undefined ? existingPrices[o.bil] : (parseFloat(o.hargaUnit) || 0);
       ordersSheet.appendRow([
         jobId,
         bil++,
@@ -641,8 +670,8 @@ function apiSaveJob(params) {
         (o.nama || '').toUpperCase(),
         o.kolar || 'Round neck (RN)',
         o.remarks || '-',
-        parseFloat(o.hargaUnit) || 0,
-        parseFloat(o.basePrice) || parseFloat(o.hargaUnit) || 0,
+        itemPrice,
+        parseFloat(o.basePrice) || itemPrice,
         nowStr,
         o.status || 'pending'
       ]);
@@ -785,16 +814,6 @@ function apiSaveQuote(params) {
   if (typeof quotes === 'string') {
     try { quotes = JSON.parse(quotes); } catch(e) { quotes = []; }
   }
-  // Also handle individual quote params (quote_1, quote_2, etc.)
-  if (!Array.isArray(quotes) || quotes.length === 0) {
-    quotes = [];
-    for (const k in params) {
-      if (k.startsWith('quotes[') && k.endsWith('].bil')) {
-        const idx = k.match(/\d+/)[0];
-        quotes.push({ bil: parseInt(params['quotes['+idx+'].bil']), price: parseFloat(params['quotes['+idx+'].price']) });
-      }
-    }
-  }
   
   if (!jobId) return { ok: false, error: 'jobId required' };
   if (!Array.isArray(quotes) || quotes.length === 0) return { ok: false, error: 'No quotes provided' };
@@ -885,11 +904,22 @@ function apiUpdatePayment(params) {
         paySheet = ss.insertSheet('PaymentHistory');
         paySheet.appendRow(['Date', 'Job ID', 'Amount', 'Type', 'Method', 'Reference', 'Recorded By']);
       }
-      if (deposit > 0) {
-        paySheet.appendRow([new Date().toLocaleString('en-GB'), jobId, deposit, 'Deposit', method, reference, userId]);
+      // Rujukan lebih jelas: masukkan baki semasa jika rujukan kosong
+      const ref = reference || ('Baki selepas bayaran: ' + balance.toFixed(2));
+      // Dedupe: elak baris berulang jika admin tekan Save beberapa kali berturut-turut
+      // dengan nilai yang sama (job + type + amount + method + reference sama).
+      function lastMatches(type, amt) {
+        const d = paySheet.getDataRange().getValues();
+        if (d.length < 2) return false;
+        const last = d[d.length - 1];
+        return String(last[1]) === jobId && String(last[3]) === type &&
+               parseFloat(last[2]) === amt && String(last[4]) === method && String(last[5] || '') === ref;
       }
-      if (paidAmount > 0) {
-        paySheet.appendRow([new Date().toLocaleString('en-GB'), jobId, paidAmount, 'Payment', method, reference, userId]);
+      if (deposit > 0 && !lastMatches('Deposit', deposit)) {
+        paySheet.appendRow([new Date().toLocaleString('en-GB'), jobId, deposit, 'Deposit', method, ref, userId]);
+      }
+      if (paidAmount > 0 && !lastMatches('Payment', paidAmount)) {
+        paySheet.appendRow([new Date().toLocaleString('en-GB'), jobId, paidAmount, 'Payment', method, ref, userId]);
       }
       
       writeAuditLog(userId, 'updatePayment', jobId, 'Deposit:'+deposit+' Paid:'+paidAmount+' Balance:'+balance+' Status:'+payStatus+' Method:'+method);
@@ -1317,6 +1347,13 @@ function apiQuoteReply(params) {
       // Ownership check: non-admin can only reply to own jobs
       if (!isAdmin && String(data[i][10] || '') !== userId) {
         return { ok: false, error: 'Access denied: not your job' };
+      }
+      // Quote reply ONLY valid bila job sudah di-quote (quoted / revised-quote).
+      // Elak customer/agen accept/reject/counter job yang belum di-quote atau
+      // yang sudah di-confirm/production (transaksi telah berkunci).
+      const curStatus = String(data[i][3] || '').toLowerCase();
+      if (['quoted', 'revised-quote'].indexOf(curStatus) === -1) {
+        return { ok: false, error: 'Quote reply hanya dibenarkan bila job berstatus quoted atau revised-quote (status semasa: ' + curStatus + ')' };
       }
       let newStatus = '';
       let detail = '';

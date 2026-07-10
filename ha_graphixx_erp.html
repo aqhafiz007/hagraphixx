@@ -1144,8 +1144,13 @@
         currentCurrency = document.getElementById('currency-selector').value;
         updateCurrencyLabels();
         updateRawTable();
-        if (typeof generateInvoice === 'function' && currentPage === 'invoice') generateInvoice();
-        if (typeof generateModalReport === 'function' && currentPage === 'modal') generateModalReport();
+        // Re-render current view so dynamically-generated (RM) labels (e.g. dashboard
+        // "Revenue" card) pick up the new currency instead of staying stale.
+        if (currentPage === 'dashboard') loadDashboard();
+        if (currentPage === 'jobs') loadJobsFromSheet();
+        if (currentPage === 'invoice') generateInvoice();
+        if (currentPage === 'modal') { renderModalConfig(); generateModalReport(); }
+        if (currentPage === 'progress') generateProgressReport();
         showMessage('Currency changed to ' + currentCurrency);
     }
 
@@ -1400,8 +1405,12 @@
                     hargaUnit:o.hargaUnit, adminQuote:o.adminQuote, status:o.status||'pending'
                 }));
                 return { ok:true, job: jobDetail, orders: ordersList };
-            case 'getSettings':
-                return { ok:true, settings: data.settings || {} };
+            case 'getSettings': {
+                const s = data.settings || {};
+                // SECURITY: non-admin tidak boleh akses cost_config (modal supplier)
+                if (currentUser && currentUser.role !== 'admin') delete s.cost_config;
+                return { ok:true, settings: s };
+            }
             case 'saveSettings':
                 data.settings = data.settings || {};
                 if (params.pricingConfig) data.settings.pricing_config = typeof params.pricingConfig==='string'?params.pricingConfig:JSON.stringify(params.pricingConfig);
@@ -1514,6 +1523,7 @@
     // TAB SWITCHING
     // ==========================================
     function switchTab(tab) {
+        updateCurrencyLabels(); // refresh any static (RM) labels to current currency
         if (currentUser && currentUser.role !== 'admin') {
             if (['ordersheet','modal','settings'].includes(tab)) { showMessage('Access denied: Admin only tab.', true); return; }
         }
@@ -1600,6 +1610,17 @@
         return base + surcharge;
     }
 
+    // Effective selling price for an item: per-item custom override > branding markup > HA base price.
+    // Used when adding items, importing and previewing so the stored/displayed price matches the invoice.
+    function effectiveItemPrice(collar, sleeve, size, customFieldVal) {
+        if (customFieldVal !== undefined && customFieldVal !== null && !isNaN(customFieldVal) && customFieldVal > 0) return customFieldVal;
+        if (brandingConfig.enabled) {
+            if (brandingConfig.markupType === 'custom') return calculateCustomPrice(collar, sleeve, size);
+            return getBrandedPrice(calculatePrice(collar, sleeve, size), collar, sleeve, size);
+        }
+        return calculatePrice(collar, sleeve, size);
+    }
+
     function getJobCost(collar, sleeve) {
         const key = collar + ' - ' + sleeve;
         if (jobCostMap[key] !== undefined) return jobCostMap[key];
@@ -1620,21 +1641,23 @@
         return modal + surcharge;
     }
 
-    function calculateSaleWithBase(collar, sleeve, size) {
-        // Sale price comes from the actual order price per item
-        const o = orders.find(x=>x.collar===collar && x.sleeve===sleeve && x.size===size);
-        return o ? (parseFloat(o.price) || 0) : 0;
-    }
-
     function updateLivePrice() {
         const collar = document.getElementById('input-collar').value;
         const sleeve = document.getElementById('input-sleeve').value;
         const size = document.getElementById('input-size').value;
         const bd = document.getElementById('price-breakdown');
+        const customInput = document.getElementById('input-custom-price');
+        const customVal = customInput && !customInput.classList.contains('hidden') ? parseFloat(customInput.value) : NaN;
         if (collar && sleeve) {
             let total, cp, sp, surcharge;
-            // If custom price table mode, use custom prices
-            if (brandingConfig.enabled && brandingConfig.markupType === 'custom') {
+            const basePrice = calculatePrice(collar, sleeve, size);
+            if (!isNaN(customVal) && customVal > 0) {
+                // Per-item custom override (admin manual price)
+                total = customVal;
+                cp = basePrice; sp = 0; surcharge = total - basePrice;
+                document.getElementById('bd-collar').textContent = 'Custom: ' + fmtMoney(basePrice);
+                document.getElementById('bd-sleeve').textContent = '';
+            } else if (brandingConfig.enabled && brandingConfig.markupType === 'custom') {
                 cp = getCustomCollarPrice(collar);
                 sp = getCustomSleevePrice(sleeve);
                 surcharge = 0;
@@ -1646,12 +1669,18 @@
                 total = cp + sp + surcharge;
                 document.getElementById('bd-collar').textContent = 'Collar: ' + fmtMoney(cp) + ' (your price)';
                 document.getElementById('bd-sleeve').textContent = 'Sleeve: ' + fmtMoney(sp) + ' (your price)';
+            } else if (brandingConfig.enabled) {
+                // Percent / Fixed markup — apply branding to the base price
+                total = getBrandedPrice(basePrice, collar, sleeve, size);
+                surcharge = total - basePrice;
+                const mk = brandingConfig.markupType === 'percent' ? (' (+' + (brandingConfig.markupValue || 0) + '%)') : (' (+' + fmtMoney(brandingConfig.markupValue || 0) + ')');
+                document.getElementById('bd-collar').textContent = 'Base: ' + fmtMoney(basePrice) + mk;
+                document.getElementById('bd-sleeve').textContent = '';
             } else {
-                // Use SAME calculatePrice function that save uses — single source of truth
-                total = calculatePrice(collar, sleeve, size);
+                // No branding — base price (matches what save uses)
+                total = basePrice;
                 cp = getPricing(collar, sleeve);
-                sp = 0;
-                surcharge = total - cp;
+                sp = 0; surcharge = total - cp;
                 document.getElementById('bd-collar').textContent = 'Base: ' + fmtMoney(cp);
                 document.getElementById('bd-sleeve').textContent = '';
             }
@@ -1749,6 +1778,10 @@
                 customPrice = cp;
             }
         }
+        // Apply branding (percent/fixed/custom) so stored invoice price matches preview
+        if (price === basePrice && brandingConfig.enabled) {
+            price = effectiveItemPrice(collar, sleeve, size);
+        }
         orders.push({ id: orderIdCounter++, name, collar, sleeve, size, remarks, price, basePrice, customPrice, status:'pending' });
         updateRawTable();
         this.reset();
@@ -1791,7 +1824,7 @@
             // Skip jika semua kosong
             if(!sleeve && !size && !name && !collar) { skipped++; continue; }
 
-            const price = calculatePrice(collar, sleeve, size);
+            const price = effectiveItemPrice(collar, sleeve, size);
             orders.push({ id: orderIdCounter++, name, collar, sleeve, size, remarks, price, basePrice: price, customPrice: null, status:'pending' });
             count++;
         }
@@ -2021,7 +2054,8 @@
                         <button onclick="loadJobData('${esc(j.jobId)}')" class="text-brand-400 hover:text-brand-300 text-xs font-medium">Load</button>
                         <button onclick="loadJobForInvoice('${esc(j.jobId)}')" class="text-green-400 hover:text-green-300 text-xs font-medium ml-1">Invoice</button>
                         <button onclick="loadJobForStatus('${esc(j.jobId)}')" class="text-amber-400 hover:text-amber-300 text-xs font-medium ml-1">Status</button>
-                        ${isAdmin ? `<button onclick="openJobDetail('${esc(j.jobId)}')" class="text-cyan-400 hover:text-cyan-300 text-xs font-medium ml-1">Review</button><button onclick="loadJobForCostProfit('${esc(j.jobId)}')" class="text-purple-400 hover:text-purple-300 text-xs font-medium ml-1">Cost</button><button onclick="deleteJobFromSheet('${esc(j.jobId)}')" class="text-red-400 hover:text-red-300 text-xs font-medium ml-1">Delete</button>` : ''}
+                        <button onclick="openJobDetail('${esc(j.jobId)}')" class="text-cyan-400 hover:text-cyan-300 text-xs font-medium ml-1">Review</button>
+                        ${isAdmin ? `<button onclick="loadJobForCostProfit('${esc(j.jobId)}')" class="text-purple-400 hover:text-purple-300 text-xs font-medium ml-1">Cost</button><button onclick="deleteJobFromSheet('${esc(j.jobId)}')" class="text-red-400 hover:text-red-300 text-xs font-medium ml-1">Delete</button>` : ''}
                     </td>
                 </tr>`;
             }).join('');
@@ -2214,6 +2248,7 @@
 
         const status = getJobStatus(job);
         const info = statusLabels[status];
+        const isAdmin = currentUser && currentUser.role === 'admin';
         document.getElementById('modal-job-status').innerHTML = `<span class="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border ${info.color}"><span class="h-2 w-2 rounded-full ${info.dot}"></span>${info.label}</span>`;
 
         // Render orders with editable quote prices
@@ -2231,7 +2266,7 @@
                 <td class="p-3 text-center text-brand-400">${esc(o.saiz)}</td>
                 <td class="p-3 text-center">${o.remarks||'-'}</td>
                 <td class="p-3 text-right text-gray-400">${fmtMoney(base)}</td>
-                <td class="p-3 text-right"><input type="number" value="${quote.toFixed(2)}" step="0.5" min="0" data-bil="${o.bil||(i+1)}" oninput="recalcQuoteTotal()" class="w-24 px-2 py-1 bg-gray-800 border border-brand-700 rounded text-sm text-brand-300 text-right outline-none focus:border-brand-500"></td>
+                <td class="p-3 text-right"><input type="number" value="${quote.toFixed(2)}" step="0.5" min="0" ${isAdmin ? '' : 'disabled'} data-bil="${o.bil||(i+1)}" oninput="recalcQuoteTotal()" class="w-24 px-2 py-1 bg-gray-800 border border-brand-700 rounded text-sm text-brand-300 text-right outline-none focus:border-brand-500"></td>
             </tr>`;
         }).join('');
         document.getElementById('modal-base-total').textContent = fmtMoney(baseTotal);
@@ -2248,6 +2283,16 @@
 
     function renderModalActions(status) {
         const box = document.getElementById('modal-admin-actions');
+        const isAdmin = currentUser && currentUser.role === 'admin';
+        // Non-admin (agen/customer) hanya nampak butang View Invoice / Print — tiada
+        // butang workflow admin (Quote, Confirm, dll) yang boleh mengubah status job.
+        if (!isAdmin) {
+            box.innerHTML = `
+                <button onclick="generateInvoiceFromModal()" class="bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">View Invoice</button>
+                <button onclick="generateOrderSheetFromModal()" class="bg-gray-600 hover:bg-gray-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">Print Order Sheet</button>
+            `;
+            return;
+        }
         const actions = adminActions[status] || [];
         box.innerHTML = actions.map(a => {
             const btnClass = a.includes('Reject') ? 'bg-red-600 hover:bg-red-500' :
@@ -2283,7 +2328,7 @@
         if (isNaN(val) || val < 0) return;
         document.querySelectorAll('#modal-orders-tbody input').forEach(inp => { inp.value = val.toFixed(2); });
         recalcQuoteTotal();
-        showMessage('All ' + document.querySelectorAll('#modal-orders-tbody input').length + ' items set to RM ' + val.toFixed(2));
+        showMessage('All ' + document.querySelectorAll('#modal-orders-tbody input').length + ' items set to ' + curSym() + ' ' + val.toFixed(2));
     }
 
     function bulkAddFixed() {
@@ -2294,7 +2339,7 @@
             inp.value = (cur + val).toFixed(2);
         });
         recalcQuoteTotal();
-        showMessage('Added RM ' + val.toFixed(2) + ' to all items');
+        showMessage('Added ' + curSym() + ' ' + val.toFixed(2) + ' to all items');
     }
 
     function bulkMarkupPercent() {
@@ -2331,7 +2376,7 @@
             if (o) inp.value = ((parseFloat(o.hargaUnit) || 0) + add).toFixed(2);
         });
         recalcQuoteTotal();
-        showMessage('All prices set to base + RM ' + add.toFixed(2));
+        showMessage('All prices set to base + ' + curSym() + ' ' + add.toFixed(2));
     }
 
     function closeJobDetailModal() {
@@ -2821,7 +2866,7 @@
             const key = o.collar+' - '+o.sleeve;
             if(!groups[key]) groups[key] = { collar:o.collar, sleeve:o.sleeve, quantity:0, sizes:{}, totalSale:0, totalModal:0 };
             groups[key].quantity++;
-            groups[key].totalSale += calculateSaleWithBase(o.collar,o.sleeve,o.size);
+            groups[key].totalSale += (parseFloat(o.price) || 0);
             groups[key].totalModal += calculateModal(o.collar,o.sleeve,o.size);
             if(!groups[key].sizes[o.size]) groups[key].sizes[o.size]={qty:0, sale:0};
             groups[key].sizes[o.size].qty++;
@@ -3426,7 +3471,7 @@
             {name:'Johan',collar:'Retro collar',sleeve:'Pendek',size:'4XL',remarks:'99'},
             {name:'Aina',collar:'Round neck (RN)',sleeve:'Kid',size:'S',remarks:'5'}
         ];
-        demo.forEach(d => orders.push({ id:orderIdCounter++, name:d.name.toUpperCase(), collar:d.collar, sleeve:d.sleeve, size:d.size, remarks:d.remarks, price:calculatePrice(d.collar,d.sleeve,d.size), status:'pending' }));
+        demo.forEach(d => orders.push({ id:orderIdCounter++, name:d.name.toUpperCase(), collar:d.collar, sleeve:d.sleeve, size:d.size, remarks:d.remarks, price:effectiveItemPrice(d.collar,d.sleeve,d.size), status:'pending' }));
         updateRawTable(); showMessage('Demo data loaded!');
     }
 
