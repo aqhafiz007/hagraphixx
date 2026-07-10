@@ -86,62 +86,82 @@ function handleRequest(e) {
     action = e.parameter.action;
     params = e.parameter;
   } else if (e.postData && e.postData.contents) {
-    // Handle JSON body (raw POST)
     try {
       const body = JSON.parse(e.postData.contents);
       action = body.action || action;
       params = body;
     } catch(err) {
-      // Not JSON — fall back to e.parameter
       params = e.parameter;
     }
   }
   
   // Endpoints that DON'T require auth
   const publicEndpoints = ['ping', 'login', 'portalLogin'];
-  
-  // Endpoints that require admin role
-  const adminOnlyEndpoints = ['saveJob', 'deleteJob', 'updateJobStatus', 'saveQuote', 'saveSettings'];
+  const adminOnlyEndpoints = ['deleteJob', 'updateJobStatus', 'saveQuote', 'saveSettings'];
   
   // Check auth for non-public endpoints
   if (publicEndpoints.indexOf(action) === -1) {
-    const userId = String(params.userId || '');
-    const userRole = String(params.userRole || '');
-    
-    if (!userId) {
-      return ContentService
-        .createTextOutput(JSON.stringify({ ok: false, error: 'Authentication required' }))
-        .setMimeType(ContentService.MimeType.JSON);
+    const token = String(params.token || '');
+    if (!token) {
+      return jsonOut({ ok: false, error: 'Authentication required' });
     }
     
-    // Verify user exists and get role from sheet
+    // Verify token from Sessions sheet (or legacy portal token)
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const usersSheet = ss.getSheetByName('Users');
-    if (usersSheet) {
-      const usersData = usersSheet.getDataRange().getValues();
-      let verifiedRole = '';
-      let userActive = false;
-      for (let i = 1; i < usersData.length; i++) {
-        if (String(usersData[i][0]).toLowerCase() === userId.toLowerCase()) {
-          verifiedRole = String(usersData[i][2] || '');
-          userActive = String(usersData[i][8]).toUpperCase() === 'TRUE';
-          break;
+    let sessionUser = null;
+    
+    // Try Sessions sheet first
+    let sessionsSheet = ss.getSheetByName('Sessions');
+    if (!sessionsSheet) {
+      sessionsSheet = ss.insertSheet('Sessions');
+      sessionsSheet.appendRow(['Token', 'User ID', 'Role', 'Name', 'Created At', 'Expires At']);
+    }
+    const sessionsData = sessionsSheet.getDataRange().getValues();
+    const now = new Date();
+    for (let i = 1; i < sessionsData.length; i++) {
+      if (String(sessionsData[i][0]) === token) {
+        const expires = new Date(sessionsData[i][5]);
+        if (expires > now) {
+          sessionUser = { id: String(sessionsData[i][1]), role: String(sessionsData[i][2]), name: String(sessionsData[i][3] || '') };
+        }
+        break;
+      }
+    }
+    
+    // Fallback: legacy portal token (portal-USERID-TIMESTAMP)
+    if (!sessionUser && token.startsWith('portal-')) {
+      const parts = token.split('-');
+      const tokenUserId = parts.length >= 3 ? parts.slice(1, -1).join('-') : '';
+      if (tokenUserId) {
+        const usersSheet = ss.getSheetByName('Users');
+        if (usersSheet) {
+          const uData = usersSheet.getDataRange().getValues();
+          for (let i = 1; i < uData.length; i++) {
+            if (String(uData[i][0]).toLowerCase() === tokenUserId.toLowerCase()) {
+              const role = String(uData[i][2] || '');
+              const active = String(uData[i][8]).toUpperCase() === 'TRUE';
+              if (active && (role === 'customer' || role === 'agen')) {
+                sessionUser = { id: String(uData[i][0]), role: role, name: String(uData[i][3] || '') };
+              }
+              break;
+            }
+          }
         }
       }
-      if (!verifiedRole || !userActive) {
-        return ContentService
-          .createTextOutput(JSON.stringify({ ok: false, error: 'Invalid or inactive user' }))
-          .setMimeType(ContentService.MimeType.JSON);
-      }
-      // Override userRole with verified value
-      params.userRole = verifiedRole;
-      
-      // Admin-only check
-      if (adminOnlyEndpoints.indexOf(action) !== -1 && verifiedRole !== 'admin') {
-        return ContentService
-          .createTextOutput(JSON.stringify({ ok: false, error: 'Admin access required' }))
-          .setMimeType(ContentService.MimeType.JSON);
-      }
+    }
+    
+    if (!sessionUser) {
+      return jsonOut({ ok: false, error: 'Invalid or expired session' });
+    }
+    
+    // Inject verified user info into params
+    params.userId = sessionUser.id;
+    params.userRole = sessionUser.role;
+    params.userName = sessionUser.name;
+    
+    // Admin-only check
+    if (adminOnlyEndpoints.indexOf(action) !== -1 && sessionUser.role !== 'admin') {
+      return jsonOut({ ok: false, error: 'Admin access required' });
     }
   }
   
@@ -166,6 +186,8 @@ function handleRequest(e) {
       case 'portalSubmitRequest': result = apiPortalSubmitRequest(params); break;
       case 'portalUpdateProfile': result = apiPortalUpdateProfile(params); break;
       case 'portalChangePassword':result = apiPortalChangePassword(params); break;
+      case 'logout':       invalidateSession(String(params.token||'')); result = { ok: true, message: 'Logged out' }; break;
+      case 'getAuditLog':  result = apiGetAuditLog(params); break;
       default:             result = { ok: false, error: 'Unknown action: ' + action };
     }
   } catch(err) {
@@ -182,6 +204,62 @@ function doGetOptions(e) {
   return ContentService
     .createTextOutput('')
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Helper: output JSON
+function jsonOut(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Helper: create session token (7-day expiry)
+function createSession(userId, role, name) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sessionsSheet = ss.getSheetByName('Sessions');
+  if (!sessionsSheet) {
+    sessionsSheet = ss.insertSheet('Sessions');
+    sessionsSheet.appendRow(['Token', 'User ID', 'Role', 'Name', 'Created At', 'Expires At']);
+  }
+  // Generate secure token
+  const randBytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, userId + Date.now() + Math.random());
+  const token = 'sess-' + randBytes.map(b => (b < 0 ? b + 256 : b).toString(16).padStart(2, '0')).join('').slice(0, 32);
+  const now = new Date();
+  const expires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  sessionsSheet.appendRow([token, userId, role, name, now, expires]);
+  // Clean expired sessions (keep last 100 rows)
+  const data = sessionsSheet.getDataRange().getValues();
+  if (data.length > 100) {
+    for (let i = data.length - 1; i >= 1; i--) {
+      const exp = new Date(data[i][5]);
+      if (exp < now) sessionsSheet.deleteRow(i + 1);
+    }
+  }
+  return token;
+}
+
+// Helper: invalidate session (logout)
+function invalidateSession(token) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sessionsSheet = ss.getSheetByName('Sessions');
+  if (!sessionsSheet) return;
+  const data = sessionsSheet.getDataRange().getValues();
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]) === token) {
+      sessionsSheet.deleteRow(i + 1);
+      break;
+    }
+  }
+}
+
+// Helper: sanitize text to prevent XSS
+function sanitizeText(text) {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // ==========================================
@@ -231,8 +309,11 @@ function apiLogin(params) {
       if (role && role !== userRole) continue;
       const active = String(row[8]).toUpperCase() === 'TRUE';
       if (!active) return { ok: false, error: 'Account not active' };
+      // Generate session token (7-day expiry)
+      const token = createSession(row[0], userRole, row[3] || '');
       return {
         ok: true,
+        token: token,
         user: {
           id: row[0],
           role: userRole,
@@ -248,11 +329,14 @@ function apiLogin(params) {
   return { ok: false, error: 'Wrong ID, password or role' };
 }
 
-// DASHBOARD - ringkasan statistik
+// DASHBOARD - ringkasan statistik (role-filtered)
 function apiGetDashboard(params) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const jobsSheet = ss.getSheetByName('Jobs');
   const ordersSheet = ss.getSheetByName('Orders');
+  const userId = String(params.userId || '');
+  const userRole = String(params.userRole || '');
+  const isAdmin = userRole === 'admin';
   
   const jobsData = jobsSheet ? jobsSheet.getDataRange().getValues() : [];
   const ordersData = ordersSheet ? ordersSheet.getDataRange().getValues() : [];
@@ -262,24 +346,30 @@ function apiGetDashboard(params) {
   const closed = ['completed', 'delivered', 'cancelled', 'rejected'];
   
   for (let i = 1; i < jobsData.length; i++) {
+    // Non-admin: only see own jobs (diciptaOleh = userId)
+    if (!isAdmin && String(jobsData[i][10] || '') !== userId) continue;
     totalJobs++;
     totalHelai += parseInt(jobsData[i][4]) || 0;
-    totalRevenue += parseFloat(jobsData[i][5]) || 0;
+    // Non-admin: don't expose revenue
+    if (isAdmin) totalRevenue += parseFloat(jobsData[i][5]) || 0;
     const status = String(jobsData[i][3] || 'submitted').toLowerCase();
     if (closed.indexOf(status) === -1) activeJobs++;
     statusCounts[status] = (statusCounts[status] || 0) + 1;
   }
   
   const recentJobs = [];
-  for (let i = Math.max(1, jobsData.length - 5); i < jobsData.length; i++) {
+  const recentCount = isAdmin ? 5 : 10;
+  for (let i = Math.max(1, jobsData.length - recentCount); i < jobsData.length; i++) {
     if (i < 1) continue;
+    if (!isAdmin && String(jobsData[i][10] || '') !== userId) continue;
     recentJobs.push({
       jobId: jobsData[i][0],
       namaJob: jobsData[i][1],
       noInvois: jobsData[i][2],
       status: jobsData[i][3],
       helai: jobsData[i][4],
-      jumlah: jobsData[i][5],
+      // Non-admin: don't expose revenue amount
+      jumlah: isAdmin ? jobsData[i][5] : 0,
       dicipta: jobsData[i][8] ? new Date(jobsData[i][8]).toLocaleDateString('en-GB') : ''
     });
   }
@@ -290,7 +380,8 @@ function apiGetDashboard(params) {
     stats: {
       totalJobs,
       totalHelai,
-      totalRevenue,
+      // Non-admin: don't expose revenue
+      totalRevenue: isAdmin ? totalRevenue : 0,
       activeJobs,
       statusCounts,
       totalOrders: ordersData.length - 1
@@ -299,22 +390,28 @@ function apiGetDashboard(params) {
   };
 }
 
-// GET JOBS - senarai semua job
+// GET JOBS - senarai semua job (role-filtered)
 function apiGetJobs(params) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName('Jobs');
   if (!sheet) return { ok: false, error: 'Sheet Jobs tidak wujud' };
+  const userId = String(params.userId || '');
+  const userRole = String(params.userRole || '');
+  const isAdmin = userRole === 'admin';
   
   const data = sheet.getDataRange().getValues();
   const jobs = [];
   for (let i = 1; i < data.length; i++) {
+    // Non-admin: only see own jobs
+    if (!isAdmin && String(data[i][10] || '') !== userId) continue;
     jobs.push({
       jobId: data[i][0],
       namaJob: data[i][1],
       noInvois: data[i][2],
       status: data[i][3],
       helai: data[i][4],
-      jumlah: data[i][5],
+      // Non-admin: don't expose total amount
+      jumlah: isAdmin ? data[i][5] : 0,
       config: data[i][6],
       dicipta: data[i][8] ? new Date(data[i][8]).toLocaleString('en-GB') : '',
       dikemaskini: data[i][9] ? new Date(data[i][9]).toLocaleString('en-GB') : '',
@@ -325,9 +422,12 @@ function apiGetJobs(params) {
   return { ok: true, jobs };
 }
 
-// GET JOB - dapatkan satu job + orders
+// GET JOB - dapatkan satu job + orders (ownership-checked)
 function apiGetJob(params) {
   const jobId = String(params.jobId || '');
+  const userId = String(params.userId || '');
+  const userRole = String(params.userRole || '');
+  const isAdmin = userRole === 'admin';
   if (!jobId) return { ok: false, error: 'jobId diperlukan' };
   
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -337,15 +437,22 @@ function apiGetJob(params) {
   // Cari job
   const jobsData = jobsSheet.getDataRange().getValues();
   let jobInfo = null;
+  let jobOwner = '';
   for (let i = 1; i < jobsData.length; i++) {
     if (jobsData[i][0] === jobId) {
+      jobOwner = String(jobsData[i][10] || '');
+      // Ownership check: non-admin can only access own jobs
+      if (!isAdmin && jobOwner !== userId) {
+        return { ok: false, error: 'Access denied: not your job' };
+      }
       jobInfo = {
         jobId: jobsData[i][0],
         namaJob: jobsData[i][1],
         noInvois: jobsData[i][2],
         status: jobsData[i][3],
         helai: jobsData[i][4],
-        jumlah: jobsData[i][5],
+        // Non-admin: don't expose total amount
+        jumlah: isAdmin ? jobsData[i][5] : 0,
         config: jobsData[i][6],
         dicipta: jobsData[i][8] ? new Date(jobsData[i][8]).toLocaleString('en-GB') : '',
         dikemaskini: jobsData[i][9] ? new Date(jobsData[i][9]).toLocaleString('en-GB') : '',
@@ -393,6 +500,18 @@ function apiSaveJob(params) {
   // Jana Job ID jika baru
   let jobId = jobData.jobId || '';
   const isNew = !jobId;
+  
+  // OWNERSHIP CHECK: non-admin hanya boleh edit job yang dia cipta sendiri
+  if (!isNew && userRole !== 'admin') {
+    const checkData = jobsSheet.getDataRange().getValues();
+    let owner = '';
+    for (let i = 1; i < checkData.length; i++) {
+      if (checkData[i][0] === jobId) { owner = String(checkData[i][10] || ''); break; }
+    }
+    if (owner.toLowerCase() !== userId.toLowerCase()) {
+      return { ok: false, error: 'Access denied: anda hanya boleh edit job anda sendiri' };
+    }
+  }
   
   if (isNew) {
     const now = new Date();
@@ -495,6 +614,7 @@ function apiSaveJob(params) {
     });
   }
   
+  writeAuditLog(String(params.userId||''), isNew?'saveJob':'updateJob', jobId, (isNew?'Created':'Updated')+' '+totalHelai+' items, RM'+totalRM);
   return { ok: true, jobId, totalHelai, totalRM };
 }
 
@@ -519,6 +639,7 @@ function apiDeleteJob(params) {
     if (ordersData[i][0] === jobId) ordersSheet.deleteRow(i+1);
   }
   
+  writeAuditLog(String(params.userId||''), 'deleteJob', jobId, 'Deleted job');
   return { ok: true, message: 'Job dipadam: ' + jobId };
 }
 
@@ -559,9 +680,9 @@ function apiUpdateJobStatus(params) {
   
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === jobId) {
-      jobsSheet.getRange(i+1, 4).setValue(newStatus); // Status column
+      jobsSheet.getRange(i+1, 4).setValue(newStatus); // Status column (kekal bersih untuk statusToStage/statusToLabel)
       jobsSheet.getRange(i+1, 10).setValue(now); // Dikemaskini Pada column
-      if (reason) jobsSheet.getRange(i+1, 4).setValue(newStatus + ' (rejected: ' + reason + ')');
+      if (reason) jobsSheet.getRange(i+1, 17).setValue('[' + newStatus + '] ' + reason); // Notes column
       
       // Send email notification to job creator
       try {
@@ -1001,4 +1122,35 @@ function apiPortalChangePassword(params) {
     }
   }
   return { ok: false, error: 'User not found' };
+}
+
+// ==========================================
+// AUDIT LOG
+// ==========================================
+function writeAuditLog(userId, action, jobId, detail) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let auditSheet = ss.getSheetByName('AuditLog');
+  if (!auditSheet) {
+    auditSheet = ss.insertSheet('AuditLog');
+    auditSheet.appendRow(['Timestamp', 'User ID', 'Action', 'Job ID', 'Detail']);
+  }
+  auditSheet.appendRow([new Date().toLocaleString('en-GB'), userId, action, jobId, String(detail || '')]);
+}
+
+function apiGetAuditLog(params) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const auditSheet = ss.getSheetByName('AuditLog');
+  if (!auditSheet) return { ok: true, logs: [] };
+  const data = auditSheet.getDataRange().getValues();
+  const logs = [];
+  for (let i = data.length - 1; i >= 1 && logs.length < 50; i--) {
+    logs.push({
+      timestamp: data[i][0],
+      userId: data[i][1],
+      action: data[i][2],
+      jobId: data[i][3],
+      detail: data[i][4]
+    });
+  }
+  return { ok: true, logs };
 }

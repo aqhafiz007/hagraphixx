@@ -79,13 +79,7 @@
                     </button>
                 </form>
                 <div class="mt-6 pt-6 border-t border-gray-800 text-center">
-                    <p class="text-xs text-gray-500 mb-2">Demo Accounts (click to auto-fill):</p>
-                    <div class="grid grid-cols-3 gap-2 text-[11px]">
-                        <button onclick="fillLogin('admin','admin123')" class="bg-brand-900/40 hover:bg-brand-900/60 text-brand-300 font-medium px-2 py-1.5 rounded transition-colors">Admin</button>
-                        <button onclick="fillLogin('agen001','agen123')" class="bg-green-900/40 hover:bg-green-900/60 text-green-300 font-medium px-2 py-1.5 rounded transition-colors">Agen</button>
-                        <button onclick="fillLogin('cus001','cus123')" class="bg-purple-900/40 hover:bg-purple-900/60 text-purple-300 font-medium px-2 py-1.5 rounded transition-colors">Customer</button>
-                    </div>
-                    <p class="text-[10px] text-gray-600 mt-3">Offline mode available if API not configured</p>
+                    <p class="text-[10px] text-gray-600">Secure login — contact admin for credentials</p>
                 </div>
             </div>
         </div>
@@ -1075,15 +1069,18 @@
     let orderIdCounter = 1;
     let currentJobId = null; // null = new job; set when a saved job is loaded
     let currentUser = null;
+    let sessionToken = null;
     let savedJobs = [];
     let currentCurrency = 'RM'; // RM, SGD, USD
     let currentPage = 'dashboard'; // track current page for currency refresh
 
     // Currency formatter - auto-convert from RM base
     const currencyRates = { RM: 1, SGD: 0.30, USD: 0.22 };
+    const currencySymbols = { 'RM':'RM', 'SGD':'S$', 'USD':'$', 'EUR':'€' };
     function fmtMoney(rmAmount) {
+        const sym = currencySymbols[currentCurrency] || currentCurrency;
         const converted = (rmAmount || 0) * (currencyRates[currentCurrency] || 1);
-        return currentCurrency + ' ' + converted.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return sym + ' ' + converted.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
     function changeCurrency() {
         currentCurrency = document.getElementById('currency-selector').value;
@@ -1180,14 +1177,13 @@
     // API CALLER
     // ==========================================
     // Actions that write data — use POST to avoid URL length limits
-    const POST_ACTIONS = ['saveJob', 'deleteJob', 'saveQuote', 'saveSettings', 'updateJobStatus', 'updateOrderStatus', 'portalSubmitRequest', 'portalUpdateProfile', 'portalChangePassword'];
+    const POST_ACTIONS = ['saveJob', 'deleteJob', 'saveQuote', 'saveSettings', 'updateJobStatus', 'updateOrderStatus', 'portalSubmitRequest', 'portalUpdateProfile', 'portalChangePassword', 'logout'];
 
     async function apiCall(action, params = {}) {
         if (USE_OFFLINE_MODE) return offlineFallback(action, params);
-        // Auto-attach userId and userRole for auth (except login/ping)
+        // Auto-attach session token for auth (except login/ping)
         if (!['login','ping','portalLogin'].includes(action) && currentUser) {
-            if (!params.userId) params.userId = currentUser.id;
-            if (!params.userRole) params.userRole = currentUser.role;
+            if (!params.token) params.token = sessionToken || '';
         }
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 15000);
@@ -1338,6 +1334,7 @@
                 return;
             }
             currentUser = res.user;
+            sessionToken = res.token || null;
             performLogin();
         } catch(err) {
             const errBox = document.getElementById('login-error');
@@ -1371,8 +1368,11 @@
         }
     }
 
-    function logout() {
-        currentUser = null; orders = []; orderIdCounter = 1;
+    async function logout() {
+        if (sessionToken) {
+            try { await apiCall('logout', {}); } catch(e) {}
+        }
+        currentUser = null; sessionToken = null; orders = []; orderIdCounter = 1;
         document.getElementById('app-wrapper').classList.add('hidden');
         document.getElementById('app-wrapper').style.display = 'none';
         document.getElementById('login-overlay').classList.remove('hidden');
@@ -1582,6 +1582,16 @@
         box.className = `fixed bottom-5 right-5 px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 z-50 flex items-center gap-3 ${isError?'bg-red-600 text-white':'bg-green-600 text-white'}`;
         setTimeout(()=>box.classList.remove('translate-y-20','opacity-0'), 10);
         setTimeout(()=>box.classList.add('translate-y-20','opacity-0'), 3500);
+    }
+
+    // XSS sanitizer — escape HTML before inserting into innerHTML
+    function esc(str) {
+        return String(str || '')
+            .replace(/&/g,'&amp;')
+            .replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;')
+            .replace(/'/g,'&#39;');
     }
 
     // Init size dropdown
